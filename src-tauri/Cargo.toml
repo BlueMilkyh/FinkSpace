@@ -1,6 +1,6 @@
 [package]
 name = "finkspace"
-version = "0.1.4"
+version = "0.1.5"
 description = "Multi-agent Claude Code workspace manager"
 authors = ["Aljaz Fink"]
 edition = "2021"

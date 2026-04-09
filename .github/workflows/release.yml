@@ -51,7 +51,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "FinkSpace v__VERSION__"
           releaseBody: "See the assets to download and install this version."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
