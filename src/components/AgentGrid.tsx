@@ -43,12 +43,19 @@ function splitIntoRows(agents: Agent[], rows: number[]): Agent[][] {
   return result;
 }
 
-/** Auto-split agents into rows: each agent gets its own row (single column) */
+/** Auto-split agents into rows: 1→[1], 2→[2], 3→[3], 4→[2,2], 5→[3,2], 6→[3,3], etc. */
 function autoSplitRows(count: number): number[] {
   if (count <= 0) return [];
+  if (count <= 3) return [count];
+  if (count === 4) return [2, 2];
+  if (count === 5) return [3, 2];
+  if (count === 6) return [3, 3];
   const rows: number[] = [];
-  for (let i = 0; i < count; i++) {
-    rows.push(1);
+  let remaining = count;
+  while (remaining > 0) {
+    const perRow = remaining > 4 ? Math.min(4, Math.ceil(remaining / 2)) : remaining;
+    rows.push(perRow);
+    remaining -= perRow;
   }
   return rows;
 }

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   getOrCreateTerminal,
   attachToContainer,
+  detachFromContainer,
   updateTerminalTheme,
   refitTerminal,
 } from "../lib/terminal-manager";
@@ -32,7 +33,7 @@ export function useTerminal(
     theme,
   );
 
-  // Attach terminal to the DOM container
+  // Attach terminal to the DOM container; detach on unmount to preserve the element
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -43,6 +44,10 @@ export function useTerminal(
       options.args,
       options.cwd,
     );
+    return () => {
+      // Detach: pull the terminal element out before React destroys the container
+      detachFromContainer(options.agentId);
+    };
   }, [options.agentId, containerRef, options.command, options.args, options.cwd]);
 
   // Update theme without re-creating terminal

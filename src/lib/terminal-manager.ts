@@ -191,6 +191,23 @@ export function attachToContainer(
   setupResizeObserver(managed, agentId);
 }
 
+/** Detach terminal element from its container (before React unmounts it) */
+export function detachFromContainer(agentId: string) {
+  const managed = terminals.get(agentId);
+  if (!managed) return;
+
+  detachResizeObserver(managed);
+
+  // Pull the terminal element out of the container into a safe off-DOM holder
+  // so it survives React destroying the container div
+  const el = managed.terminal.element;
+  if (el && el.parentElement) {
+    el.parentElement.removeChild(el);
+  }
+
+  managed.container = null;
+}
+
 function setupResizeObserver(managed: ManagedTerminal, agentId: string) {
   detachResizeObserver(managed);
   if (!managed.container) return;
