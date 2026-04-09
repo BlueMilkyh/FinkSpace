@@ -28,7 +28,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git tag:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(\"C:/Users/Aljaz/.cargo/bin/cargo.exe\" check:*)"
     ]
   }
 }
