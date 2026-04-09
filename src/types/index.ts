@@ -13,7 +13,6 @@ export interface TerminalType {
 import { getPlatform } from "../lib/platform";
 
 const WINDOWS_TERMINALS: TerminalType[] = [
-  { id: "system-default", name: "System Default", icon: "Terminal", command: "", args: [], description: "Auto-detect best shell" },
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
   { id: "powershell", name: "PowerShell", icon: "Terminal", command: "powershell.exe", args: ["-NoLogo"], description: "Windows PowerShell" },
   { id: "cmd", name: "Command Prompt", icon: "SquareTerminal", command: "cmd.exe", args: [], description: "Windows CMD" },
@@ -22,7 +21,6 @@ const WINDOWS_TERMINALS: TerminalType[] = [
 ];
 
 const MACOS_TERMINALS: TerminalType[] = [
-  { id: "system-default", name: "System Default", icon: "Terminal", command: "", args: [], description: "Auto-detect best shell" },
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
   { id: "zsh", name: "Zsh", icon: "Terminal", command: "/bin/zsh", args: ["--login"], description: "Default macOS shell" },
   { id: "bash", name: "Bash", icon: "Terminal", command: "/bin/bash", args: ["--login"], description: "Bash shell" },
@@ -30,7 +28,6 @@ const MACOS_TERMINALS: TerminalType[] = [
 ];
 
 const LINUX_TERMINALS: TerminalType[] = [
-  { id: "system-default", name: "System Default", icon: "Terminal", command: "", args: [], description: "Auto-detect best shell" },
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
   { id: "bash", name: "Bash", icon: "Terminal", command: "/bin/bash", args: ["--login"], description: "Bash shell" },
   { id: "zsh", name: "Zsh", icon: "Terminal", command: "/bin/zsh", args: ["--login"], description: "Zsh shell" },
