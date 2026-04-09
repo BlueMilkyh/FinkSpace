@@ -19,7 +19,10 @@
       "Bash(cargo check:*)",
       "Bash(npx tsc:*)",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(npx @tauri-apps/cli signer generate -w src-tauri/keys/finkspace.key)",
+      "Bash(TAURI_SIGNING_PRIVATE_KEY_PASSWORD=\"\" npx @tauri-apps/cli signer generate -w src-tauri/keys/finkspace.key --ci)",
+      "Bash(gh --version)"
     ]
   }
 }
