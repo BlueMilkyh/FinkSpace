@@ -1,4 +1,4 @@
-export type AgentStatus = "running" | "idle" | "exited" | "error";
+export type AgentStatus = "running" | "idle" | "exited" | "error" | "pending";
 
 export interface TerminalType {
   id: string;

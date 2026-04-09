@@ -93,6 +93,7 @@ export function WorkspaceTabs() {
             y={ctxMenu.y}
             name={w.name}
             color={w.color}
+            workspaceId={w.id}
             onRename={(name) => renameWorkspace(w.id, name)}
             onColorChange={(color) => setWorkspaceColor(w.id, color)}
             onClose={() => setCtxMenu(null)}

@@ -24,7 +24,11 @@
       "Bash(TAURI_SIGNING_PRIVATE_KEY_PASSWORD=\"\" npx @tauri-apps/cli signer generate -w src-tauri/keys/finkspace.key --ci)",
       "Bash(gh --version)",
       "Bash(curl:*)",
-      "Bash(node scripts/release.mjs 0.1.2)"
+      "Bash(node scripts/release.mjs 0.1.2)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)"
     ]
   }
 }

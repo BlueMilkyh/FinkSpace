@@ -20,6 +20,7 @@ import { AgentTile } from "./AgentTile";
 import { AddAgentButton } from "./AddAgentButton";
 import { ContextMenu } from "./ContextMenu";
 import { killAgent } from "../lib/tauri-bridge";
+import { destroyTerminal } from "../lib/terminal-manager";
 import { useSettingsStore } from "../stores/settings-store";
 import { TERMINAL_LAYOUTS } from "../types";
 import type { TerminalType, Agent } from "../types";
@@ -42,19 +43,12 @@ function splitIntoRows(agents: Agent[], rows: number[]): Agent[][] {
   return result;
 }
 
-/** Auto-split agents into rows */
+/** Auto-split agents into rows: each agent gets its own row (single column) */
 function autoSplitRows(count: number): number[] {
   if (count <= 0) return [];
-  if (count <= 3) return [count];
-  if (count === 4) return [2, 2];
-  if (count === 5) return [3, 2];
-  if (count === 6) return [3, 3];
   const rows: number[] = [];
-  let remaining = count;
-  while (remaining > 0) {
-    const perRow = remaining > 4 ? Math.min(4, Math.ceil(remaining / 2)) : remaining;
-    rows.push(perRow);
-    remaining -= perRow;
+  for (let i = 0; i < count; i++) {
+    rows.push(1);
   }
   return rows;
 }
@@ -191,6 +185,7 @@ export function AgentGrid() {
   );
 
   const handleCloseAgent = async (workspaceId: string, agentId: string) => {
+    destroyTerminal(agentId);
     try {
       await killAgent(agentId);
     } catch {

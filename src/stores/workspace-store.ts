@@ -23,6 +23,8 @@ interface WorkspaceStore {
   switchWorkspace: (id: string) => void;
 
   addAgent: (opts: AddAgentOptions) => Agent;
+  addPendingAgent: (workspaceId: string) => void;
+  activateAgent: (agentId: string, opts: AddAgentOptions) => void;
   removeAgent: (workspaceId: string, agentId: string) => void;
   renameAgent: (agentId: string, name: string) => void;
   setAgentColor: (agentId: string, color: string) => void;
@@ -128,6 +130,53 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return agent;
       },
 
+      addPendingAgent: (workspaceId: string) => {
+        const ws = get().workspaces.find((w) => w.id === workspaceId);
+        const num = (ws?.agents.length ?? 0) + 1;
+        const agent: Agent = {
+          id: generateId(),
+          name: `Agent ${num}`,
+          color: getNextColor(),
+          status: "pending",
+          workDir: ws?.workDir || "",
+          terminalType: "",
+          command: "",
+          args: [],
+        };
+        set((state) => ({
+          workspaces: state.workspaces.map((w) =>
+            w.id === workspaceId
+              ? { ...w, agents: [...w.agents, agent] }
+              : w,
+          ),
+        }));
+      },
+
+      activateAgent: (agentId: string, { workspaceId, name, workDir, terminalType }: AddAgentOptions) => {
+        set((state) => ({
+          workspaces: state.workspaces.map((w) =>
+            w.id === workspaceId
+              ? {
+                  ...w,
+                  agents: w.agents.map((a) =>
+                    a.id === agentId
+                      ? {
+                          ...a,
+                          name,
+                          status: "running" as AgentStatus,
+                          workDir,
+                          terminalType: terminalType.id,
+                          command: terminalType.command,
+                          args: [...terminalType.args],
+                        }
+                      : a,
+                  ),
+                }
+              : w,
+          ),
+        }));
+      },
+
       removeAgent: (workspaceId: string, agentId: string) => {
         set((state) => ({
           workspaces: state.workspaces.map((w) =>
@@ -207,8 +256,11 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           (w: Workspace) => ({
             ...w,
             workDir: w.workDir ?? "",
-            // Reset all agents to "running" so fresh PTY processes are spawned on restart
-            agents: w.agents.map((a: Agent) => ({ ...a, status: "running" as AgentStatus })),
+            // Reset running agents so fresh PTY processes are spawned; keep pending as pending
+            agents: w.agents.map((a: Agent) => ({
+              ...a,
+              status: a.status === "pending" ? ("pending" as AgentStatus) : ("running" as AgentStatus),
+            })),
           }),
         );
         return {
