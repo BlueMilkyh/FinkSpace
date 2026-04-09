@@ -1,0 +1,28 @@
+[package]
+name = "finkspace"
+version = "0.1.0"
+description = "Multi-agent Claude Code workspace manager"
+authors = ["Aljaz Fink"]
+edition = "2021"
+
+[lib]
+name = "finkspace_lib"
+crate-type = ["cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-os = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+portable-pty = "0.8"
+uuid = { version = "1", features = ["v4"] }
+parking_lot = "0.12"
+base64 = "0.22"
+log = "0.4"

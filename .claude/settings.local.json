@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude --version)",
+      "Bash(cargo search:*)",
+      "Bash(npm view:*)",
+      "Bash(where cargo:*)",
+      "Read(//c/Users/Aljaz/.cargo/bin/**)",
+      "Read(//c/Users/Aljaz/.rustup//**)",
+      "Read(//c/Users/Aljaz/**)",
+      "Bash(export PATH=\"$PATH:/c/Users/Aljaz/.cargo/bin\")",
+      "Bash(cargo --version)",
+      "Bash(rustc --version)",
+      "Bash(npm --version)",
+      "Bash(where rustup:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tauri:*)",
+      "Bash(node -e ':*)",
+      "Bash(cargo check:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx vite:*)"
+    ]
+  }
+}
