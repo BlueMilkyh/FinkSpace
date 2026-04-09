@@ -60,4 +60,4 @@ execSync(`git push origin "v${newVersion}"`, { stdio: "inherit" });
 
 console.log(`\nDone! v${newVersion} pushed.`);
 console.log("GitHub Actions will build and create the release.");
-console.log("Check: https://github.com/AljazFink/FinkSpace/actions");
+console.log("Check: https://github.com/BlueMilkyh/FinkSpace/actions");

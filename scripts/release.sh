@@ -48,4 +48,4 @@ git push origin "v$NEW"
 
 echo ""
 echo "Done! v$NEW pushed. GitHub Actions will build and create the release."
-echo "Check: https://github.com/AljazFink/FinkSpace/actions"
+echo "Check: https://github.com/BlueMilkyh/FinkSpace/actions"
