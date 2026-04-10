@@ -129,6 +129,31 @@ export function attachToContainer(
     } catch {
       // Canvas not available, fall back to DOM renderer
     }
+
+    // Right-click → copy selection if any, else paste from clipboard
+    const el = terminal.element as HTMLElement | undefined;
+    if (el) {
+      el.addEventListener("contextmenu", async (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          if (terminal.hasSelection()) {
+            const text = terminal.getSelection();
+            if (text) {
+              await navigator.clipboard.writeText(text);
+            }
+            terminal.clearSelection();
+          } else {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              await writeToAgent(agentId, text);
+            }
+          }
+        } catch {
+          // Clipboard access denied or unavailable
+        }
+      });
+    }
   } else {
     // Re-parent the terminal element into the new container
     container.innerHTML = "";
@@ -275,4 +300,25 @@ export function destroyTerminal(agentId: string) {
 /** Check if a terminal exists */
 export function hasTerminal(agentId: string): boolean {
   return terminals.has(agentId);
+}
+
+/** Whether the terminal currently has a selection */
+export function hasSelection(agentId: string): boolean {
+  const managed = terminals.get(agentId);
+  return managed?.terminal.hasSelection() ?? false;
+}
+
+/** Copy the current terminal selection to the clipboard. Returns true on success. */
+export async function copySelection(agentId: string): Promise<boolean> {
+  const managed = terminals.get(agentId);
+  if (!managed || !managed.terminal.hasSelection()) return false;
+  const text = managed.terminal.getSelection();
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    managed.terminal.clearSelection();
+    return true;
+  } catch {
+    return false;
+  }
 }

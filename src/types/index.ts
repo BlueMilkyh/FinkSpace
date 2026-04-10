@@ -14,6 +14,11 @@ import { getPlatform } from "../lib/platform";
 
 const WINDOWS_TERMINALS: TerminalType[] = [
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
+  { id: "codex", name: "Codex", icon: "Sparkles", command: "codex", args: [], description: "OpenAI Codex CLI" },
+  { id: "gemini", name: "Gemini", icon: "Gem", command: "gemini", args: [], description: "Google Gemini CLI" },
+  { id: "aider", name: "Aider", icon: "Wand2", command: "aider", args: [], description: "Aider AI pair programmer" },
+  { id: "opencode", name: "OpenCode", icon: "Cpu", command: "opencode", args: [], description: "OpenCode AI CLI" },
+  { id: "cursor", name: "Cursor", icon: "MousePointer2", command: "cursor-agent", args: [], description: "Cursor agent CLI" },
   { id: "powershell", name: "PowerShell", icon: "Terminal", command: "powershell.exe", args: ["-NoLogo"], description: "Windows PowerShell" },
   { id: "cmd", name: "Command Prompt", icon: "SquareTerminal", command: "cmd.exe", args: [], description: "Windows CMD" },
   { id: "bash", name: "Git Bash", icon: "Terminal", command: "C:\\Program Files\\Git\\bin\\bash.exe", args: ["--login"], description: "Git Bash" },
@@ -22,6 +27,11 @@ const WINDOWS_TERMINALS: TerminalType[] = [
 
 const MACOS_TERMINALS: TerminalType[] = [
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
+  { id: "codex", name: "Codex", icon: "Sparkles", command: "codex", args: [], description: "OpenAI Codex CLI" },
+  { id: "gemini", name: "Gemini", icon: "Gem", command: "gemini", args: [], description: "Google Gemini CLI" },
+  { id: "aider", name: "Aider", icon: "Wand2", command: "aider", args: [], description: "Aider AI pair programmer" },
+  { id: "opencode", name: "OpenCode", icon: "Cpu", command: "opencode", args: [], description: "OpenCode AI CLI" },
+  { id: "cursor", name: "Cursor", icon: "MousePointer2", command: "cursor-agent", args: [], description: "Cursor agent CLI" },
   { id: "zsh", name: "Zsh", icon: "Terminal", command: "/bin/zsh", args: ["--login"], description: "Default macOS shell" },
   { id: "bash", name: "Bash", icon: "Terminal", command: "/bin/bash", args: ["--login"], description: "Bash shell" },
   { id: "fish", name: "Fish", icon: "Terminal", command: "fish", args: [], description: "Fish shell" },
@@ -29,6 +39,11 @@ const MACOS_TERMINALS: TerminalType[] = [
 
 const LINUX_TERMINALS: TerminalType[] = [
   { id: "claude", name: "Claude Code", icon: "Bot", command: "claude", args: [], description: "Anthropic Claude Code CLI" },
+  { id: "codex", name: "Codex", icon: "Sparkles", command: "codex", args: [], description: "OpenAI Codex CLI" },
+  { id: "gemini", name: "Gemini", icon: "Gem", command: "gemini", args: [], description: "Google Gemini CLI" },
+  { id: "aider", name: "Aider", icon: "Wand2", command: "aider", args: [], description: "Aider AI pair programmer" },
+  { id: "opencode", name: "OpenCode", icon: "Cpu", command: "opencode", args: [], description: "OpenCode AI CLI" },
+  { id: "cursor", name: "Cursor", icon: "MousePointer2", command: "cursor-agent", args: [], description: "Cursor agent CLI" },
   { id: "bash", name: "Bash", icon: "Terminal", command: "/bin/bash", args: ["--login"], description: "Bash shell" },
   { id: "zsh", name: "Zsh", icon: "Terminal", command: "/bin/zsh", args: ["--login"], description: "Zsh shell" },
   { id: "fish", name: "Fish", icon: "Terminal", command: "fish", args: [], description: "Fish shell" },
@@ -68,6 +83,11 @@ export const TERMINAL_LAYOUTS: TerminalLayout[] = [
   { id: "3-3", name: "3 x 3", rows: [3, 3] },
   { id: "1-3", name: "1 + 3", rows: [1, 3] },
   { id: "3-1", name: "3 + 1", rows: [3, 1] },
+  { id: "4-4", name: "4 + 4", rows: [4, 4] },
+  { id: "5-5", name: "5 + 5", rows: [5, 5] },
+  { id: "4-4-4", name: "4 x 3", rows: [4, 4, 4] },
+  { id: "7-7", name: "7 + 7", rows: [7, 7] },
+  { id: "4-4-4-4", name: "4 x 4", rows: [4, 4, 4, 4] },
 ];
 
 export interface Agent {

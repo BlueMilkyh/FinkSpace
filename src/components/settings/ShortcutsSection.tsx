@@ -1,4 +1,4 @@
-import { Layers, PanelTop, Bot, Info } from "lucide-react";
+import { Layers, PanelTop, Bot, Info, Clipboard, Compass } from "lucide-react";
 
 import { useSettingsStore } from "../../stores/settings-store";
 
@@ -10,6 +10,15 @@ interface ShortcutGroup {
 }
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
+  {
+    id: "navigation",
+    label: "Navigation",
+    icon: Compass,
+    items: [
+      { action: "openFinkSpace", label: "Open FinkSpace" },
+      { action: "openFinkSwarm", label: "Open FinkSwarm" },
+    ],
+  },
   {
     id: "workspaces",
     label: "Workspaces",
@@ -33,6 +42,15 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { action: "closePane", label: "Close active pane" },
       { action: "nextPane", label: "Next pane" },
       { action: "previousPane", label: "Previous pane" },
+    ],
+  },
+  {
+    id: "clipboard",
+    label: "Clipboard",
+    icon: Clipboard,
+    items: [
+      { action: "copy", label: "Copy selection" },
+      { action: "paste", label: "Paste from clipboard" },
     ],
   },
   {

@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { useSettingsStore } from "../stores/settings-store";
 import { useNavigationStore } from "../stores/navigation-store";
-import { killAgent } from "../lib/tauri-bridge";
+import { killAgent, writeToAgent } from "../lib/tauri-bridge";
+import { copySelection, hasSelection } from "../lib/terminal-manager";
 import { TERMINAL_TYPES } from "../types";
 import { isMac } from "../lib/platform";
 
@@ -26,6 +27,11 @@ function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
 
   const pressedKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
   const expectedKey = parsed.key.toUpperCase();
+
+  // Digit keys: compare via e.code so Shift+1 ("!") still matches "1"
+  if (/^[0-9]$/.test(expectedKey) && e.code === `Digit${expectedKey}`) {
+    return true;
+  }
 
   if (expectedKey === "]" && e.key === "]") return true;
   if (expectedKey === "[" && e.key === "[") return true;
@@ -89,6 +95,31 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Copy: Ctrl+Shift+C — only if a terminal has a selection (otherwise let xterm handle it)
+      if (matchesShortcut(e, sc.copy ?? "Ctrl+Shift+C")) {
+        const focusedId = useWorkspaceStore.getState().focusedAgentId;
+        if (focusedId && hasSelection(focusedId)) {
+          e.preventDefault();
+          copySelection(focusedId);
+          return;
+        }
+      }
+
+      // Paste: Ctrl+Shift+V → write clipboard contents to focused agent
+      if (matchesShortcut(e, sc.paste ?? "Ctrl+Shift+V")) {
+        const focusedId = useWorkspaceStore.getState().focusedAgentId;
+        if (focusedId) {
+          e.preventDefault();
+          navigator.clipboard
+            .readText()
+            .then((text) => {
+              if (text) writeToAgent(focusedId, text);
+            })
+            .catch(() => {});
+          return;
+        }
+      }
+
       const activeView = useNavigationStore.getState().activeView;
 
       // Escape exits settings view
@@ -96,6 +127,22 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         const { previousView } = useNavigationStore.getState();
         useNavigationStore.getState().setActiveView(previousView);
+        return;
+      }
+
+      // ── Navigation (global) ──
+
+      // Open FinkSpace: Ctrl+Shift+1
+      if (matchesShortcut(e, sc.openFinkSpace ?? "Ctrl+Shift+1")) {
+        e.preventDefault();
+        useNavigationStore.getState().setActiveView("terminal");
+        return;
+      }
+
+      // Open FinkSwarm: Ctrl+Shift+2
+      if (matchesShortcut(e, sc.openFinkSwarm ?? "Ctrl+Shift+2")) {
+        e.preventDefault();
+        useNavigationStore.getState().setActiveView("swarm");
         return;
       }
 

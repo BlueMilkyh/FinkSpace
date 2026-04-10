@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Terminal, SquareTerminal, X } from "lucide-react";
+import { Bot, Terminal, SquareTerminal, X, Sparkles, Gem, Wand2, Cpu, MousePointer2 } from "lucide-react";
 import type { Agent, TerminalType } from "../types";
 import { TERMINAL_TYPES } from "../types";
 import { AgentHeader } from "./AgentHeader";
@@ -11,6 +11,11 @@ const iconMap: Record<string, React.ElementType> = {
   Bot,
   Terminal,
   SquareTerminal,
+  Sparkles,
+  Gem,
+  Wand2,
+  Cpu,
+  MousePointer2,
 };
 
 interface AgentTileProps {

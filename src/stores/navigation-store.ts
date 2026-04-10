@@ -1,17 +1,18 @@
 import { create } from "zustand";
 
-export type ViewType = "terminal" | "kanban" | "settings";
+export type ViewType = "home" | "terminal" | "kanban" | "settings" | "swarm";
 
 interface NavigationStore {
   activeView: ViewType;
   previousView: ViewType;
   setActiveView: (view: ViewType) => void;
   toggleSettings: () => void;
+  goHome: () => void;
 }
 
 export const useNavigationStore = create<NavigationStore>((set, get) => ({
-  activeView: "terminal",
-  previousView: "terminal",
+  activeView: "home",
+  previousView: "home",
   setActiveView: (view) =>
     set((s) => ({
       activeView: view,
@@ -25,4 +26,5 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
       set({ previousView: activeView, activeView: "settings" });
     }
   },
+  goHome: () => set({ activeView: "home", previousView: "home" }),
 }));

@@ -17,13 +17,12 @@ import {
 } from "@dnd-kit/sortable";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { AgentTile } from "./AgentTile";
-import { AddAgentButton } from "./AddAgentButton";
-import { ContextMenu } from "./ContextMenu";
+import { EmptyWorkspaceWizard } from "./EmptyWorkspaceWizard";
 import { killAgent } from "../lib/tauri-bridge";
 import { destroyTerminal } from "../lib/terminal-manager";
 import { useSettingsStore } from "../stores/settings-store";
 import { TERMINAL_LAYOUTS } from "../types";
-import type { TerminalType, Agent } from "../types";
+import type { Agent } from "../types";
 
 /** Split agents into rows based on layout definition */
 function splitIntoRows(agents: Agent[], rows: number[]): Agent[][] {
@@ -158,37 +157,24 @@ function DragOverlayContent({ agent }: { agent: Agent }) {
 export function AgentGrid() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const addAgent = useWorkspaceStore((s) => s.addAgent);
   const removeAgent = useWorkspaceStore((s) => s.removeAgent);
   const reorderAgents = useWorkspaceStore((s) => s.reorderAgents);
 
-  const defaultWorkDir = useSettingsStore((s) => s.settings.defaultWorkDir);
   const terminalLayout = useSettingsStore((s) => s.settings.terminalLayout);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const customLayoutRows = useSettingsStore((s) => s.settings.customLayoutRows);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
 
-  const activeLayout = useMemo(
-    () => TERMINAL_LAYOUTS.find((l) => l.id === terminalLayout),
-    [terminalLayout],
-  );
+  const activeLayout = useMemo(() => {
+    if (terminalLayout === "custom") {
+      return { id: "custom", name: "Custom", rows: customLayoutRows };
+    }
+    return TERMINAL_LAYOUTS.find((l) => l.id === terminalLayout);
+  }, [terminalLayout, customLayoutRows]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
-  );
-
-  const handleAddAgent = useCallback(
-    (terminalType: TerminalType, workspaceId: string) => {
-      const workspace = workspaces.find((w) => w.id === workspaceId);
-      const agents = workspace?.agents ?? [];
-      const count = agents.filter((a) => a.terminalType === terminalType.id).length;
-      const name = count === 0 ? terminalType.name : `${terminalType.name} ${count + 1}`;
-      const workDir = workspace?.workDir || defaultWorkDir;
-      addAgent({ workspaceId, name, workDir, terminalType });
-      setContextMenu(null);
-    },
-    [workspaces, addAgent, defaultWorkDir],
   );
 
   const handleCloseAgent = async (workspaceId: string, agentId: string) => {
@@ -200,11 +186,6 @@ export function AgentGrid() {
     }
     removeAgent(workspaceId, agentId);
   };
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }, []);
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -234,7 +215,7 @@ export function AgentGrid() {
   );
 
   return (
-    <div className="h-full relative" onContextMenu={handleContextMenu}>
+    <div className="h-full relative">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -249,17 +230,14 @@ export function AgentGrid() {
             return (
               <div
                 key={workspace.id}
-                className="absolute inset-0 flex items-center justify-center p-2 transition-opacity duration-150 ease-in-out"
+                className="absolute inset-0 transition-opacity duration-150 ease-in-out"
                 style={{
                   opacity: isActive ? 1 : 0,
                   pointerEvents: isActive ? "auto" : "none",
                   zIndex: isActive ? 1 : 0,
                 }}
               >
-                <AddAgentButton
-                  onSelect={(tt) => handleAddAgent(tt, workspace.id)}
-                  workspaceId={workspace.id}
-                />
+                <EmptyWorkspaceWizard workspaceId={workspace.id} />
               </div>
             );
           }
@@ -321,15 +299,6 @@ export function AgentGrid() {
           {activeAgent && <DragOverlayContent agent={activeAgent} />}
         </DragOverlay>
       </DndContext>
-
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onSelect={(tt) => handleAddAgent(tt, activeWorkspaceId)}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
     </div>
   );
 }

@@ -3,10 +3,10 @@ import { useSettingsStore } from "../stores/settings-store";
 
 const TERMINAL_THEMES = {
   dark: {
-    background: "#1a1b2e",
+    background: "#0b0d12",
     foreground: "#e0e0e0",
-    selectionBackground: "#3a3c5c",
-    black: "#1a1b2e",
+    selectionBackground: "#232634",
+    black: "#0b0d12",
   },
   black: {
     background: "#000000",
@@ -16,8 +16,8 @@ const TERMINAL_THEMES = {
   },
   light: {
     background: "#ffffff",
-    foreground: "#1a1a1a",
-    selectionBackground: "#b4d5fe",
+    foreground: "#0a0e1a",
+    selectionBackground: "#a8c8ff",
     black: "#000000",
   },
 } as const;

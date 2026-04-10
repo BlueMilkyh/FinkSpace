@@ -19,6 +19,8 @@ pub fn run() {
             commands::agent::write_to_agent,
             commands::agent::resize_agent,
             commands::agent::kill_agent,
+            commands::fs::resolve_dir,
+            commands::fs::home_dir,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

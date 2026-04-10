@@ -5,7 +5,7 @@ const THEMES = [
   {
     id: "dark" as const,
     label: "Dark",
-    preview: { bg: "#1a1b2e", surface: "#242640", border: "#3a3c5c" },
+    preview: { bg: "#0b0d12", surface: "#11141c", border: "#232634" },
   },
   {
     id: "black" as const,
@@ -15,7 +15,7 @@ const THEMES = [
   {
     id: "light" as const,
     label: "Light",
-    preview: { bg: "#f5f5f5", surface: "#e8e8e8", border: "#cccccc" },
+    preview: { bg: "#ffffff", surface: "#f1f3f7", border: "#c2c8d4" },
   },
 ];
 

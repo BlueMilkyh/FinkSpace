@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { LayoutGrid, SquareTerminal, Kanban, Settings } from "lucide-react";
+import { LayoutGrid, SquareTerminal, Kanban, Settings, Home } from "lucide-react";
 import { useNavigationStore, type ViewType } from "../stores/navigation-store";
 
 interface NavItem {
@@ -10,6 +10,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: "home", label: "Home", icon: Home },
   { id: "terminal", label: "Terminal", icon: SquareTerminal, shortcut: "Ctrl+1" },
   { id: "kanban", label: "Kanban Board", icon: Kanban, shortcut: "Ctrl+2" },
   { id: "settings", label: "Settings", icon: Settings, shortcut: "Ctrl+," },

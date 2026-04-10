@@ -1,8 +1,10 @@
 import { useWorkspaceStore } from "../stores/workspace-store";
+import { useNavigationStore } from "../stores/navigation-store";
 
 export function StatusBar() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeView = useNavigationStore((s) => s.activeView);
 
   const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const totalAgents = workspaces.reduce((sum, w) => sum + w.agents.length, 0);
@@ -11,17 +13,23 @@ export function StatusBar() {
     0,
   );
 
+  const showWorkspaceInfo = activeView !== "home" && activeView !== "swarm";
+
   return (
     <div className="flex items-center justify-between px-3 py-1 bg-surface border-t border-surface-border text-xs text-white/40">
       <div className="flex items-center gap-4">
-        <span>
-          {workspace?.name} - {workspace?.agents.length ?? 0} agent(s)
-        </span>
-        <span>
-          Total: {totalAgents} | Running: {runningAgents}
-        </span>
+        {showWorkspaceInfo && (
+          <>
+            <span>
+              {workspace?.name} - {workspace?.agents.length ?? 0} agent(s)
+            </span>
+            <span>
+              Total: {totalAgents} | Running: {runningAgents}
+            </span>
+          </>
+        )}
       </div>
-      <span>FinkSpace v0.1.0</span>
+      <span>FinkSpace v0.1.6</span>
     </div>
   );
 }

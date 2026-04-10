@@ -29,7 +29,9 @@
       "Bash(git commit -m ':*)",
       "Bash(git tag:*)",
       "Bash(git push:*)",
-      "Bash(\"C:/Users/Aljaz/.cargo/bin/cargo.exe\" check:*)"
+      "Bash(\"C:/Users/Aljaz/.cargo/bin/cargo.exe\" check:*)",
+      "Bash(C:/Users/Aljaz/.cargo/bin/cargo.exe check:*)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

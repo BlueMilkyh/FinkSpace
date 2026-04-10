@@ -21,7 +21,8 @@ interface Settings {
   cursorBlink: boolean;
   cursorStyle: "block" | "underline" | "bar";
   scrollback: number;
-  terminalLayout: string; // layout preset id, e.g. "auto", "2-3", "2-2"
+  terminalLayout: string; // layout preset id, e.g. "auto", "2-3", "2-2", or "custom"
+  customLayoutRows: number[]; // used when terminalLayout === "custom"
 
   // AI Agents / Defaults
   defaultAgent: string;
@@ -44,6 +45,9 @@ interface SettingsStore {
 }
 
 const defaultShortcuts: Record<string, string> = {
+  // Navigation
+  openFinkSpace: "Ctrl+Shift+1",
+  openFinkSwarm: "Ctrl+Shift+2",
   // Workspaces
   newWorkspace: "Ctrl+T",
   closeWorkspace: "Ctrl+Shift+W",
@@ -59,6 +63,9 @@ const defaultShortcuts: Record<string, string> = {
   previousPane: "Ctrl+[",
   // AI Features
   aiAssistance: "Ctrl+K",
+  // Clipboard
+  copy: "Ctrl+Shift+C",
+  paste: "Ctrl+Shift+V",
   // General
   toggleSettings: "Ctrl+,",
 };
@@ -74,6 +81,7 @@ const defaultSettings: Settings = {
   cursorStyle: "block",
   scrollback: 5000,
   terminalLayout: "auto",
+  customLayoutRows: [2, 2],
 
   defaultAgent: "claude",
   defaultWorkDir: "",  // Set dynamically after platform init
