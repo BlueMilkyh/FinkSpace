@@ -1,9 +1,9 @@
 import { Plus, Bot, Terminal, SquareTerminal, FolderOpen, Sparkles, Gem, Wand2, Cpu, MousePointer2 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { TERMINAL_TYPES } from "../types";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "./workspace-store";
 import { useNavigationStore } from "../stores/navigation-store";
-import { CdInput } from "./CdInput";
+import { CdInput } from "../components/CdInput";
 import type { TerminalType } from "../types";
 
 const iconMap: Record<string, React.ElementType> = {

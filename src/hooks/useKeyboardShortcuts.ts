@@ -1,44 +1,12 @@
 import { useEffect } from "react";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "../finkspace/workspace-store";
 import { useSettingsStore } from "../stores/settings-store";
 import { useNavigationStore } from "../stores/navigation-store";
 import { killAgent, writeToAgent } from "../lib/tauri-bridge";
 import { copySelection, hasSelection } from "../lib/terminal-manager";
 import { TERMINAL_TYPES } from "../types";
 import { isMac } from "../lib/platform";
-
-function parseShortcut(shortcut: string) {
-  const parts = shortcut.split("+").map((p) => p.trim());
-  return {
-    ctrl: parts.includes("Ctrl"),
-    shift: parts.includes("Shift"),
-    alt: parts.includes("Alt"),
-    key: parts.filter((p) => !["Ctrl", "Shift", "Alt"].includes(p))[0] ?? "",
-  };
-}
-
-function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
-  const parsed = parseShortcut(shortcut);
-  // On macOS, Cmd (metaKey) is used instead of Ctrl
-  const modPressed = isMac() ? e.metaKey : e.ctrlKey;
-  if (modPressed !== parsed.ctrl) return false;
-  if (e.shiftKey !== parsed.shift) return false;
-  if (e.altKey !== parsed.alt) return false;
-
-  const pressedKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-  const expectedKey = parsed.key.toUpperCase();
-
-  // Digit keys: compare via e.code so Shift+1 ("!") still matches "1"
-  if (/^[0-9]$/.test(expectedKey) && e.code === `Digit${expectedKey}`) {
-    return true;
-  }
-
-  if (expectedKey === "]" && e.key === "]") return true;
-  if (expectedKey === "[" && e.key === "[") return true;
-  if (expectedKey === "," && e.key === ",") return true;
-
-  return pressedKey === expectedKey;
-}
+import { matchesShortcut, parseShortcut } from "../lib/shortcuts";
 
 /** Focus an agent's terminal by finding its xterm textarea */
 function focusAgentTerminal(agentId: string) {
@@ -81,11 +49,16 @@ export function useKeyboardShortcuts() {
       // xterm textareas are fine – they already pass through via attachCustomKeyEventHandler
       const isXterm = target.classList.contains("xterm-helper-textarea");
 
+      const sc = useSettingsStore.getState().settings.shortcuts ?? {};
+
       if (isInput && !isXterm) {
-        if (e.key !== "Escape" && !(e.ctrlKey && e.key === ",")) return;
+        // Always allow Escape inside inputs, plus whatever the user currently
+        // has bound to toggleSettings — so the settings escape-hatch keeps
+        // working even after the user rebinds it away from Ctrl+,.
+        const toggleBinding = sc.toggleSettings ?? "Ctrl+,";
+        if (e.key !== "Escape" && !matchesShortcut(e, toggleBinding)) return;
       }
 
-      const sc = useSettingsStore.getState().settings.shortcuts ?? {};
       const { toggleSettings } = useNavigationStore.getState();
 
       // Toggle settings: Ctrl+,
@@ -183,14 +156,23 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Switch to workspace 1-9: Ctrl+1 through Ctrl+9
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) {
-        e.preventDefault();
-        const idx = parseInt(e.key) - 1;
-        if (idx < workspaces.length) {
-          switchWorkspace(workspaces[idx].id);
+      // Switch to workspace 1-9: modifier prefix from sc.switchWorkspace1to9
+      // paired with Digit1..Digit9. The stored key position is a placeholder;
+      // only the modifiers matter.
+      {
+        const wsSwitch = parseShortcut(sc.switchWorkspace1to9 ?? "Ctrl+1");
+        const modMatches =
+          (isMac() ? e.metaKey : e.ctrlKey) === wsSwitch.ctrl &&
+          e.shiftKey === wsSwitch.shift &&
+          e.altKey === wsSwitch.alt;
+        if (modMatches && /^Digit[1-9]$/.test(e.code)) {
+          e.preventDefault();
+          const idx = parseInt(e.code.slice(5)) - 1;
+          if (idx < workspaces.length) {
+            switchWorkspace(workspaces[idx].id);
+          }
+          return;
         }
-        return;
       }
 
       // Next workspace: Ctrl+Shift+]

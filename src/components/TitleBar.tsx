@@ -1,7 +1,7 @@
 import { Settings, Minus, Square, X, Maximize2, Home } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useState, useEffect } from "react";
-import { WorkspaceTabs } from "./WorkspaceTabs";
+import { WorkspaceTabs } from "../finkspace/WorkspaceTabs";
 import { NavigateMenu } from "./NavigateMenu";
 import { useNavigationStore } from "../stores/navigation-store";
 import { isMac } from "../lib/platform";
@@ -13,7 +13,6 @@ export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
   const mac = isMac();
-  const showTabs = activeView !== "home" && activeView !== "swarm";
 
   useEffect(() => {
     appWindow.isMaximized().then(setIsMaximized);
@@ -36,13 +35,7 @@ export function TitleBar() {
       {mac && <div className="w-[72px] flex-shrink-0" data-tauri-drag-region />}
 
       <div className="flex-1 pl-2" data-tauri-drag-region>
-        {showTabs ? (
-          <WorkspaceTabs />
-        ) : (
-          <div className="h-full flex items-center px-3" data-tauri-drag-region>
-            <span className="text-xs font-semibold text-white/50 tracking-wide">FinkSpace</span>
-          </div>
-        )}
+        <WorkspaceTabs />
       </div>
       <div className="flex items-center h-full">
         {activeView !== "home" && (

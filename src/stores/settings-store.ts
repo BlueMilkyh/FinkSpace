@@ -44,14 +44,16 @@ interface SettingsStore {
   updateSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-const defaultShortcuts: Record<string, string> = {
+export const defaultShortcuts: Record<string, string> = {
   // Navigation
   openFinkSpace: "Ctrl+Shift+1",
   openFinkSwarm: "Ctrl+Shift+2",
   // Workspaces
   newWorkspace: "Ctrl+T",
   closeWorkspace: "Ctrl+Shift+W",
-  switchWorkspace1to9: "Ctrl+1-9",
+  // Stored as a single binding — handler extracts the modifier prefix and
+  // pairs it with any Digit1..Digit9 to switch to workspace N.
+  switchWorkspace1to9: "Ctrl+1",
   nextWorkspace: "Ctrl+Shift+]",
   previousWorkspace: "Ctrl+Shift+[",
   // Panes

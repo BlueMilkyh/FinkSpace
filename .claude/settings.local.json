@@ -31,7 +31,22 @@
       "Bash(git push:*)",
       "Bash(\"C:/Users/Aljaz/.cargo/bin/cargo.exe\" check:*)",
       "Bash(C:/Users/Aljaz/.cargo/bin/cargo.exe check:*)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(gh release:*)",
+      "Bash(node -p \"require\\('./package.json'\\).version + ' | ' + require\\('./src-tauri/tauri.conf.json'\\).version\")",
+      "Bash(node scripts/release.mjs 0.2.2)",
+      "Bash(xargs grep:*)",
+      "Bash(grep:*)",
+      "Bash(ls -la /d/FIS/FinkSpace/FinkSpace/src/types*)",
+      "Bash(git mv:*)",
+      "Bash(bunx tsc:*)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run:*)",
+      "Bash(bun run:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(ls -la .claude*)"
     ]
   }
 }

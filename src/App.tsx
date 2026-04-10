@@ -1,9 +1,9 @@
 import { TitleBar } from "./components/TitleBar";
-import { AgentGrid } from "./components/AgentGrid";
+import { AgentGrid } from "./finkspace/AgentGrid";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { HomeView } from "./components/HomeView";
-import { SwarmView } from "./components/SwarmView";
+import { SwarmView } from "./finkswarm/SwarmView";
 import { StatusBar } from "./components/StatusBar";
 import { UpdateNotification } from "./components/UpdateNotification";
 import { useTheme } from "./hooks/useTheme";

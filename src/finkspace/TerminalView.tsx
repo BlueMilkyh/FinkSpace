@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useTerminal } from "../hooks/useTerminal";
+import { useTerminal } from "./useTerminal";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalViewProps {

@@ -21,6 +21,10 @@ pub fn run() {
             commands::agent::kill_agent,
             commands::fs::resolve_dir,
             commands::fs::home_dir,
+            commands::fs::fs_make_dir_all,
+            commands::fs::fs_read_text,
+            commands::fs::fs_write_text,
+            commands::fs::fs_drain_dir,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

@@ -2,19 +2,10 @@ import { useEffect, useState } from "react";
 import { SquareTerminal, Network } from "lucide-react";
 import { useNavigationStore } from "../stores/navigation-store";
 import { useSettingsStore } from "../stores/settings-store";
-import { isMac } from "../lib/platform";
+import { useWorkspaceStore } from "../finkspace/workspace-store";
+import { useSwarmStore } from "../finkswarm/store";
+import { shortcutToParts } from "../lib/shortcuts";
 import appIconUrl from "../../app-icon.png";
-
-function formatShortcut(shortcut: string | undefined): string[] {
-  if (!shortcut) return [];
-  return shortcut.split("+").map((k) => {
-    const key = k.trim();
-    if (key === "Ctrl" && isMac()) return "⌘";
-    if (key === "Shift") return "⇧";
-    if (key === "Alt") return isMac() ? "⌥" : "Alt";
-    return key;
-  });
-}
 
 const PREFIX = "Build the future with ";
 const ROTATING_WORDS = ["Fink", "AI", "Style"];
@@ -24,8 +15,36 @@ type Phase = "prefix" | "typing" | "holding" | "deleting";
 export function HomeView() {
   const setActiveView = useNavigationStore((s) => s.setActiveView);
   const shortcuts = useSettingsStore((s) => s.settings.shortcuts);
-  const finkSpaceKeys = formatShortcut(shortcuts?.openFinkSpace);
-  const finkSwarmKeys = formatShortcut(shortcuts?.openFinkSwarm);
+  const finkSpaceKeys = shortcutToParts(shortcuts?.openFinkSpace ?? "");
+  const finkSwarmKeys = shortcutToParts(shortcuts?.openFinkSwarm ?? "");
+
+  // Launching from the home cards should feel like "start fresh" — spin up
+  // a brand-new workspace / swarm draft, not drop the user into whatever
+  // happened to be active last.
+  const openNewFinkSpace = () => {
+    const { workspaces, activeWorkspaceId, addWorkspace, switchWorkspace } =
+      useWorkspaceStore.getState();
+    // If the currently active workspace is already empty (no agents), reuse
+    // it instead of piling up empty workspaces.
+    const active = workspaces.find((w) => w.id === activeWorkspaceId);
+    if (active && active.agents.length === 0) {
+      switchWorkspace(active.id);
+    } else {
+      const empty = workspaces.find((w) => w.agents.length === 0);
+      if (empty) {
+        switchWorkspace(empty.id);
+      } else {
+        addWorkspace();
+      }
+    }
+    setActiveView("terminal");
+  };
+
+  const openNewFinkSwarm = () => {
+    const { draft, beginDraft } = useSwarmStore.getState();
+    if (!draft) beginDraft();
+    setActiveView("swarm");
+  };
 
   // Typewriter: types the prefix once, then cycles through rotating words.
   const [prefixLen, setPrefixLen] = useState(0);
@@ -78,7 +97,7 @@ export function HomeView() {
       {/* Ambient neon glow background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-32 left-1/4 w-[500px] h-[500px] rounded-full bg-accent-orange/[0.07] blur-[120px]" />
-        <div className="absolute -bottom-32 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-500/[0.06] blur-[120px]" />
+        <div className="absolute -bottom-32 right-1/4 w-[500px] h-[500px] rounded-full bg-accent-orange/[0.05] blur-[120px]" />
       </div>
 
       {/* Sweeping scanline */}
@@ -114,7 +133,7 @@ export function HomeView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-3xl">
           {/* FinkSpace card */}
           <button
-            onClick={() => setActiveView("terminal")}
+            onClick={openNewFinkSpace}
             className="snake-neon group relative flex flex-col items-start gap-4 p-6 rounded-2xl bg-surface-light/40 border border-surface-border transition-transform duration-300 text-left hover:-translate-y-0.5"
           >
             <span className="absolute top-3 right-3 text-[10px] font-mono text-white/25">
@@ -144,9 +163,9 @@ export function HomeView() {
             )}
           </button>
 
-          {/* FinkSwarm card (placeholder) */}
+          {/* FinkSwarm card */}
           <button
-            onClick={() => setActiveView("swarm")}
+            onClick={openNewFinkSwarm}
             className="snake-neon snake-neon-cyan group relative flex flex-col items-start gap-4 p-6 rounded-2xl bg-surface-light/40 border border-surface-border transition-transform duration-300 text-left hover:-translate-y-0.5"
           >
             <span className="absolute top-3 right-3 text-[10px] font-mono text-white/25">
@@ -158,9 +177,6 @@ export function HomeView() {
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold text-white">FinkSwarm</h2>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-white/40 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
-                  Soon
-                </span>
               </div>
               <p className="text-sm text-white/50 leading-relaxed">
                 Launch a team of AI agents that work together in parallel. Give the

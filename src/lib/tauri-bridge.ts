@@ -40,3 +40,29 @@ export async function onAgentExited(
 ): Promise<UnlistenFn> {
   return listen<AgentExitedEvent>("agent-exited", (e) => callback(e.payload));
 }
+
+// ─── Filesystem (FinkSwarm mailbox) ────────────────────────────────────
+
+export async function fsMakeDirAll(path: string): Promise<void> {
+  await invoke("fs_make_dir_all", { path });
+}
+
+export async function fsWriteText(
+  path: string,
+  content: string,
+): Promise<void> {
+  await invoke("fs_write_text", { path, content });
+}
+
+export async function fsReadText(path: string): Promise<string> {
+  return invoke<string>("fs_read_text", { path });
+}
+
+export interface DrainedFile {
+  name: string;
+  content: string;
+}
+
+export async function fsDrainDir(dir: string): Promise<DrainedFile[]> {
+  return invoke<DrainedFile[]>("fs_drain_dir", { dir });
+}

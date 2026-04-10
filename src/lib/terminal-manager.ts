@@ -7,10 +7,18 @@ import {
   resizeAgent,
   onAgentOutput,
   onAgentExited,
+  killAgent,
 } from "./tauri-bridge";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "../finkspace/workspace-store";
+import { notifyAgentIdle, useNotificationStore } from "../finkspace/notifications-store";
 import { getTerminalTheme, type AppTheme } from "../hooks/useTheme";
 import { isMac } from "./platform";
+
+/** How long the PTY must be silent after producing output before we mark the agent idle. */
+const IDLE_DEBOUNCE_MS = 2000;
+
+/** Ignore quiescence notifications for this long after initial spawn (swallow prompt echo). */
+const SPAWN_GRACE_MS = 2500;
 
 interface ManagedTerminal {
   terminal: Terminal;
@@ -21,9 +29,53 @@ interface ManagedTerminal {
   unlistenExited: (() => void) | null;
   onDataDisposable: { dispose: () => void } | null;
   spawned: boolean;
+  spawnedAt: number;
+  idleTimer: ReturnType<typeof setTimeout> | null;
+  bytesSinceIdle: number;
 }
 
 const terminals = new Map<string, ManagedTerminal>();
+
+/**
+ * Debounce a "became idle after activity" signal for an agent. On each output
+ * chunk we bump the accumulator and reset the timer. When the PTY goes quiet
+ * for IDLE_DEBOUNCE_MS, we flip the agent to "idle" status (which the footer
+ * Running counter respects) and, if the user is not currently viewing this
+ * workspace, raise a tab notification. The initial spawn echo is ignored so
+ * shell prompts don't trigger anything, and trivial < 8-byte bursts are
+ * skipped to filter keystroke echoes.
+ */
+function scheduleIdleNotification(
+  managed: ManagedTerminal,
+  agentId: string,
+  byteCount: number,
+) {
+  managed.bytesSinceIdle += byteCount;
+  // New output → agent is actively working again
+  useWorkspaceStore.getState().updateAgentStatus(agentId, "running");
+  if (managed.idleTimer) clearTimeout(managed.idleTimer);
+  managed.idleTimer = setTimeout(() => {
+    managed.idleTimer = null;
+    const bytes = managed.bytesSinceIdle;
+    managed.bytesSinceIdle = 0;
+    // Ignore the initial spawn echo (shell prompts, welcome banners)
+    if (Date.now() - managed.spawnedAt < SPAWN_GRACE_MS) return;
+    // Require a non-trivial amount of output so we don't notify for keystroke
+    // echoes, single-line log lines, or a process just printing a heartbeat.
+    // Legitimate agent responses (Claude, shell commands with output) blow
+    // well past this.
+    if (bytes < 200) return;
+    // Only flip to idle if the process is still alive (not exited/error)
+    const agent = useWorkspaceStore
+      .getState()
+      .workspaces.flatMap((w) => w.agents)
+      .find((a) => a.id === agentId);
+    if (agent && agent.status === "running") {
+      useWorkspaceStore.getState().updateAgentStatus(agentId, "idle");
+    }
+    notifyAgentIdle(agentId);
+  }, IDLE_DEBOUNCE_MS);
+}
 
 /** Get or create a Terminal instance for the given agentId */
 export function getOrCreateTerminal(
@@ -92,6 +144,9 @@ export function getOrCreateTerminal(
     unlistenExited: null,
     onDataDisposable: null,
     spawned: false,
+    spawnedAt: 0,
+    idleTimer: null,
+    bytesSinceIdle: 0,
   };
 
   terminals.set(agentId, managed);
@@ -176,21 +231,24 @@ export function attachToContainer(
     // Spawn if not yet spawned
     if (!managed.spawned) {
       managed.spawned = true;
+      managed.spawnedAt = Date.now();
       spawnAgent(agentId, command, args, cwd, cols, rows).catch((err) => {
         terminal.writeln(`\r\n\x1b[31mFailed to spawn agent: ${err}\x1b[0m`);
         useWorkspaceStore.getState().updateAgentStatus(agentId, "error");
       });
 
-      // Input → PTY
+      // Input → PTY. User keystrokes clear any pending "became idle" notification.
       managed.onDataDisposable = terminal.onData((data) => {
         writeToAgent(agentId, data).catch(() => {});
+        useNotificationStore.getState().clearAgent(agentId);
       });
 
-      // PTY output → terminal
+      // PTY output → terminal. Also drives the "agent became idle" debounce.
       onAgentOutput((event) => {
         if (event.id === agentId) {
           const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
           terminal.write(bytes);
+          scheduleIdleNotification(managed, agentId, bytes.length);
         }
       }).then((fn) => {
         managed.unlistenOutput = fn;
@@ -202,6 +260,12 @@ export function attachToContainer(
             `\r\n\x1b[33m[Process exited with code ${event.code ?? "unknown"}]\x1b[0m`,
           );
           useWorkspaceStore.getState().updateAgentStatus(agentId, "exited");
+          if (managed.idleTimer) {
+            clearTimeout(managed.idleTimer);
+            managed.idleTimer = null;
+          }
+          // Process exit is an unambiguous "agent stopped working" signal.
+          notifyAgentIdle(agentId);
         }
       }).then((fn) => {
         managed.unlistenExited = fn;
@@ -293,8 +357,27 @@ export function destroyTerminal(agentId: string) {
   managed.onDataDisposable?.dispose();
   managed.unlistenOutput?.();
   managed.unlistenExited?.();
+  if (managed.idleTimer) {
+    clearTimeout(managed.idleTimer);
+    managed.idleTimer = null;
+  }
+  useNotificationStore.getState().clearAgent(agentId);
+  const el = managed.terminal.element;
+  if (el && el.parentElement) {
+    el.parentElement.removeChild(el);
+  }
   managed.terminal.dispose();
   terminals.delete(agentId);
+}
+
+/** Kill the PTY and destroy the xterm instance. Next render re-creates and re-spawns. */
+export async function killAndDestroyTerminal(agentId: string) {
+  try {
+    await killAgent(agentId);
+  } catch {
+    // Process might already be gone
+  }
+  destroyTerminal(agentId);
 }
 
 /** Check if a terminal exists */

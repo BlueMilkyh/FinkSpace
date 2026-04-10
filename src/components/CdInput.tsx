@@ -11,18 +11,24 @@ export function CdInput({ cwd, onChange }: CdInputProps) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Internal fallback: if the parent hasn't picked a cwd yet we still need
+  // SOMETHING to display in the prompt and to resolve relative `cd ..` paths
+  // against. We fetch the user's home dir lazily and keep it local — we don't
+  // push it up to the parent, so the workspace name doesn't flicker to the
+  // home folder the moment the wizard mounts.
+  const [fallbackHome, setFallbackHome] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // If cwd is empty, ask the backend for the home directory once.
   useEffect(() => {
-    if (!cwd) {
+    if (!cwd && !fallbackHome) {
       invoke<string>("home_dir")
-        .then((home) => onChange(home))
+        .then((home) => setFallbackHome(home))
         .catch(() => {});
     }
-  }, [cwd, onChange]);
+  }, [cwd, fallbackHome]);
 
-  const displayCwd = cwd || "~";
+  const effectiveCwd = cwd || fallbackHome;
+  const displayCwd = effectiveCwd || "~";
 
   const runCommand = async (raw: string) => {
     const trimmed = raw.trim();
@@ -56,7 +62,7 @@ export function CdInput({ cwd, onChange }: CdInputProps) {
     setBusy(true);
     try {
       const resolved = await invoke<string>("resolve_dir", {
-        base: cwd,
+        base: effectiveCwd,
         input: target,
       });
       onChange(resolved);

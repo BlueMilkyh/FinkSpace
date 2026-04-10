@@ -16,10 +16,10 @@ import {
   Gem,
   MousePointer2,
 } from "lucide-react";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "./workspace-store";
 import { useSettingsStore } from "../stores/settings-store";
 import { TERMINAL_TYPES } from "../types";
-import { CdInput } from "./CdInput";
+import { CdInput } from "../components/CdInput";
 
 const CUSTOM_LAYOUT_ID = "custom";
 const MAX_CUSTOM_ROWS = 6;

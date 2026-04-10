@@ -15,7 +15,7 @@ import {
   useSortable,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "./workspace-store";
 import { AgentTile } from "./AgentTile";
 import { EmptyWorkspaceWizard } from "./EmptyWorkspaceWizard";
 import { killAgent } from "../lib/tauri-bridge";
@@ -230,7 +230,7 @@ export function AgentGrid() {
             return (
               <div
                 key={workspace.id}
-                className="absolute inset-0 transition-opacity duration-150 ease-in-out"
+                className="absolute inset-0"
                 style={{
                   opacity: isActive ? 1 : 0,
                   pointerEvents: isActive ? "auto" : "none",
@@ -252,7 +252,7 @@ export function AgentGrid() {
             return (
               <div
                 key={workspace.id}
-                className="absolute inset-0 p-1.5 transition-opacity duration-150 ease-in-out"
+                className="absolute inset-0 p-1.5"
                 style={{
                   opacity: isActive ? 1 : 0,
                   pointerEvents: isActive ? "auto" : "none",
@@ -273,7 +273,7 @@ export function AgentGrid() {
           return (
             <div
               key={workspace.id}
-              className="absolute inset-0 p-1.5 transition-opacity duration-150 ease-in-out"
+              className="absolute inset-0 p-1.5"
               style={{
                 opacity: isActive ? 1 : 0,
                 pointerEvents: isActive ? "auto" : "none",

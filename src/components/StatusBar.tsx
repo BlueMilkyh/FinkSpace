@@ -1,4 +1,4 @@
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "../finkspace/workspace-store";
 import { useNavigationStore } from "../stores/navigation-store";
 
 export function StatusBar() {
@@ -29,7 +29,7 @@ export function StatusBar() {
           </>
         )}
       </div>
-      <span>FinkSpace v0.1.6</span>
+      <span>FinkSpace v{__APP_VERSION__}</span>
     </div>
   );
 }

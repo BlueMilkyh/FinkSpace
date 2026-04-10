@@ -4,8 +4,9 @@ import type { Agent, TerminalType } from "../types";
 import { TERMINAL_TYPES } from "../types";
 import { AgentHeader } from "./AgentHeader";
 import { TerminalView } from "./TerminalView";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "./workspace-store";
 import { useSettingsStore } from "../stores/settings-store";
+import { killAndDestroyTerminal } from "../lib/terminal-manager";
 
 const iconMap: Record<string, React.ElementType> = {
   Bot,
@@ -30,6 +31,7 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
   const [isMaximized, setIsMaximized] = useState(false);
   const addAgent = useWorkspaceStore((s) => s.addAgent);
   const activateAgent = useWorkspaceStore((s) => s.activateAgent);
+  const switchAgentTerminal = useWorkspaceStore((s) => s.switchAgentTerminal);
   const defaultWorkDir = useSettingsStore((s) => s.settings.defaultWorkDir);
 
   const handleSplit = () => {
@@ -49,6 +51,11 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
     const name = count === 0 ? tt.name : `${tt.name} ${count + 1}`;
     const workDir = workspace?.workDir || defaultWorkDir;
     activateAgent(agent.id, { workspaceId, name, workDir, terminalType: tt });
+  };
+
+  const handleSwitchTerminal = async (tt: TerminalType) => {
+    await killAndDestroyTerminal(agent.id);
+    switchAgentTerminal(agent.id, tt);
   };
 
   // Pending agent — show terminal type picker
@@ -107,6 +114,7 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
         onMaximize={() => setIsMaximized(!isMaximized)}
         onSplitHorizontal={handleSplit}
         onSplitVertical={handleSplit}
+        onSwitchTerminal={handleSwitchTerminal}
         dragHandleProps={dragHandleProps}
       />
       <div className="flex-1 overflow-hidden">

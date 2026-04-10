@@ -21,6 +21,7 @@ interface WorkspaceStore {
   setWorkspaceColor: (id: string, color: string) => void;
   setWorkspaceDir: (id: string, workDir: string) => void;
   switchWorkspace: (id: string) => void;
+  reorderWorkspaces: (fromIndex: number, toIndex: number) => void;
 
   addAgent: (opts: AddAgentOptions) => Agent;
   addPendingAgent: (workspaceId: string) => void;
@@ -28,6 +29,7 @@ interface WorkspaceStore {
   removeAgent: (workspaceId: string, agentId: string) => void;
   renameAgent: (agentId: string, name: string) => void;
   setAgentColor: (agentId: string, color: string) => void;
+  switchAgentTerminal: (agentId: string, terminalType: TerminalType) => void;
   updateAgentStatus: (agentId: string, status: AgentStatus) => void;
   setFocusedAgent: (agentId: string | null) => void;
   reorderAgents: (workspaceId: string, fromIndex: number, toIndex: number) => void;
@@ -209,6 +211,25 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }));
       },
 
+      switchAgentTerminal: (agentId: string, terminalType: TerminalType) => {
+        set((state) => ({
+          workspaces: state.workspaces.map((w) => ({
+            ...w,
+            agents: w.agents.map((a) =>
+              a.id === agentId
+                ? {
+                    ...a,
+                    terminalType: terminalType.id,
+                    command: terminalType.command,
+                    args: [...terminalType.args],
+                    status: "running" as AgentStatus,
+                  }
+                : a,
+            ),
+          })),
+        }));
+      },
+
       setFocusedAgent: (agentId: string | null) => {
         set({ focusedAgentId: agentId });
       },
@@ -225,15 +246,43 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }));
       },
 
+      reorderWorkspaces: (fromIndex: number, toIndex: number) => {
+        set((state) => {
+          if (
+            fromIndex < 0 ||
+            toIndex < 0 ||
+            fromIndex >= state.workspaces.length ||
+            toIndex >= state.workspaces.length ||
+            fromIndex === toIndex
+          ) {
+            return state;
+          }
+          const workspaces = [...state.workspaces];
+          const [moved] = workspaces.splice(fromIndex, 1);
+          workspaces.splice(toIndex, 0, moved);
+          return { workspaces };
+        });
+      },
+
       updateAgentStatus: (agentId: string, status: AgentStatus) => {
-        set((state) => ({
-          workspaces: state.workspaces.map((w) => ({
-            ...w,
-            agents: w.agents.map((a) =>
-              a.id === agentId ? { ...a, status } : a,
-            ),
-          })),
-        }));
+        set((state) => {
+          // No-op if nothing changed — avoids a re-render storm on every output event
+          let changed = false;
+          const workspaces = state.workspaces.map((w) => {
+            let agentsChanged = false;
+            const agents = w.agents.map((a) => {
+              if (a.id === agentId && a.status !== status) {
+                agentsChanged = true;
+                return { ...a, status };
+              }
+              return a;
+            });
+            if (!agentsChanged) return w;
+            changed = true;
+            return { ...w, agents };
+          });
+          return changed ? { workspaces } : state;
+        });
       },
 
       getActiveWorkspace: () => {

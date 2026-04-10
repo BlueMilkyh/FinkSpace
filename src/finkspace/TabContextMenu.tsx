@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Pencil, LayoutGrid, Plus, Minus, X, Check, Sliders } from "lucide-react";
-import { ColorPicker } from "./ColorPicker";
+import { ColorPicker } from "../components/ColorPicker";
 import { TERMINAL_LAYOUTS } from "../types";
 import { useSettingsStore } from "../stores/settings-store";
-import { useWorkspaceStore } from "../stores/workspace-store";
+import { useWorkspaceStore } from "./workspace-store";
 
 interface TabContextMenuProps {
   x: number;

@@ -1,9 +1,37 @@
-import { useState } from "react";
-import { X, Maximize2, Columns2, Rows2, GripVertical } from "lucide-react";
-import type { Agent } from "../types";
-import { useWorkspaceStore } from "../stores/workspace-store";
-import { InlineEdit } from "./InlineEdit";
+import { useEffect, useRef, useState } from "react";
+import {
+  X,
+  Maximize2,
+  Columns2,
+  Rows2,
+  GripVertical,
+  MoreHorizontal,
+  Bot,
+  Terminal,
+  SquareTerminal,
+  Sparkles,
+  Gem,
+  Wand2,
+  Cpu,
+  MousePointer2,
+  Check,
+} from "lucide-react";
+import type { Agent, TerminalType } from "../types";
+import { TERMINAL_TYPES } from "../types";
+import { useWorkspaceStore } from "./workspace-store";
+import { InlineEdit } from "../components/InlineEdit";
 import { TabContextMenu } from "./TabContextMenu";
+
+const iconMap: Record<string, React.ElementType> = {
+  Bot,
+  Terminal,
+  SquareTerminal,
+  Sparkles,
+  Gem,
+  Wand2,
+  Cpu,
+  MousePointer2,
+};
 
 interface AgentHeaderProps {
   agent: Agent;
@@ -11,6 +39,7 @@ interface AgentHeaderProps {
   onMaximize: () => void;
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
+  onSwitchTerminal?: (terminalType: TerminalType) => void;
   dragHandleProps?: Record<string, unknown>;
 }
 
@@ -27,12 +56,33 @@ export function AgentHeader({
   onMaximize,
   onSplitHorizontal,
   onSplitVertical,
+  onSwitchTerminal,
   dragHandleProps,
 }: AgentHeaderProps) {
   const renameAgent = useWorkspaceStore((s) => s.renameAgent);
   const setAgentColor = useWorkspaceStore((s) => s.setAgentColor);
   const [isEditing, setIsEditing] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [moreMenuOpen]);
 
   return (
     <>
@@ -72,6 +122,48 @@ export function AgentHeader({
           <span className="text-xs text-white/40">{agent.workDir}</span>
         </div>
         <div className="flex items-center gap-0.5">
+          {onSwitchTerminal && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setMoreMenuOpen((v) => !v)}
+                title="Change terminal"
+                className="p-1 rounded hover:bg-white/10 text-white/35 hover:text-white/90 transition-colors"
+              >
+                <MoreHorizontal size={14} />
+              </button>
+              {moreMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 z-50 bg-surface-light border border-surface-border rounded-lg shadow-2xl py-1 min-w-[180px]"
+                >
+                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/30">
+                    Switch terminal
+                  </div>
+                  {TERMINAL_TYPES.map((tt) => {
+                    const Icon = iconMap[tt.icon] ?? Terminal;
+                    const isActive = agent.terminalType === tt.id;
+                    return (
+                      <button
+                        key={tt.id}
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          if (!isActive) onSwitchTerminal(tt);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                          isActive
+                            ? "text-accent-orange bg-accent-orange/10"
+                            : "text-white/75 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <Icon size={13} />
+                        <span className="flex-1 text-left">{tt.name}</span>
+                        {isActive && <Check size={12} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {onSplitHorizontal && (
             <button
               onClick={onSplitHorizontal}
