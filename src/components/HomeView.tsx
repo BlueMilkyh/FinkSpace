@@ -3,6 +3,7 @@ import { SquareTerminal, Network } from "lucide-react";
 import { useNavigationStore } from "../stores/navigation-store";
 import { useSettingsStore } from "../stores/settings-store";
 import { isMac } from "../lib/platform";
+import appIconUrl from "../../app-icon.png";
 
 function formatShortcut(shortcut: string | undefined): string[] {
   if (!shortcut) return [];
@@ -89,7 +90,7 @@ export function HomeView() {
           <div className="neon-float">
             <div className="snake-neon neon-pulse-orange w-24 h-24 rounded-2xl bg-accent-orange/5 border border-accent-orange/30 flex items-center justify-center overflow-hidden">
               <img
-                src="/app-icon.png"
+                src={appIconUrl}
                 alt="FinkSpace"
                 className="w-16 h-16 object-contain drop-shadow-[0_0_12px_rgba(255,140,40,0.6)]"
                 draggable={false}
