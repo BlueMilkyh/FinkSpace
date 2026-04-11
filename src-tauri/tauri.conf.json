@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicosalm/tauri-v2-schema/main/schema.json",
   "productName": "FinkSpace",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "com.finkspace.app",
   "build": {
     "frontendDist": "../dist",
