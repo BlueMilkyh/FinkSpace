@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useWorkspaceStore } from "./workspace-store";
 import { useSettingsStore } from "../stores/settings-store";
-import { TERMINAL_TYPES } from "../types";
+import { TERMINAL_TYPES, AUTO_APPROVE_ARGS } from "../types";
 import { CdInput } from "../components/CdInput";
 
 const CUSTOM_LAYOUT_ID = "custom";
@@ -188,6 +188,10 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
   const [step, setStep] = useState<1 | 2>(1);
   const [layoutId, setLayoutId] = useState<string>("3-3");
   const [agentCounts, setAgentCounts] = useState<Record<string, number>>({});
+  // Per-type auto-approve: default true for CLIs that have a known bypass flag.
+  const [autoApproveByType, setAutoApproveByType] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(Object.keys(AUTO_APPROVE_ARGS).map((id) => [id, true])),
+  );
 
   const workDir = useWorkspaceStore(
     (s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir ?? "",
@@ -322,6 +326,7 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
           name: tt.name + idxLabel,
           workDir: dir,
           terminalType: tt,
+          autoApprove: autoApproveByType[tt.id] ?? false,
         });
         spawned++;
       }
@@ -364,6 +369,7 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
           name: tt.name + idxLabel,
           workDir: dir,
           terminalType: tt,
+          autoApprove: autoApproveByType[tt.id] ?? false,
         });
         spawned++;
       }
@@ -586,6 +592,8 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
           {TERMINAL_TYPES.map((tt) => {
             const count = agentCounts[tt.id] ?? 0;
             const checked = count > 0;
+            const hasAutoApprove = tt.id in AUTO_APPROVE_ARGS;
+            const approved = autoApproveByType[tt.id] ?? false;
             return (
               <div
                 key={tt.id}
@@ -601,6 +609,25 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
                   <div className="text-sm font-semibold text-white/90">{tt.name}</div>
                   <div className="text-[11px] text-white/40 lowercase">{tt.id}</div>
                 </div>
+                {/* Per-CLI auto-approve toggle — only shown for CLIs with a known bypass flag */}
+                {hasAutoApprove && (
+                  <label
+                    className="flex items-center gap-1.5 cursor-pointer group select-none"
+                    title="Auto-approve permissions (bypass prompts)"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={approved}
+                      onChange={(e) =>
+                        setAutoApproveByType((prev) => ({ ...prev, [tt.id]: e.target.checked }))
+                      }
+                      className="w-3.5 h-3.5 rounded accent-accent-orange cursor-pointer"
+                    />
+                    <span className="text-[11px] text-white/40 group-hover:text-white/70 transition-colors whitespace-nowrap">
+                      Auto-approve
+                    </span>
+                  </label>
+                )}
                 <button
                   onClick={() => setAllForType(tt.id)}
                   className="px-2 py-1 text-[10px] tracking-wider font-semibold uppercase text-white/60 rounded bg-white/5 border border-surface-border hover:bg-white/10 transition-colors"

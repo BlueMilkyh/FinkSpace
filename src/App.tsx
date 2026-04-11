@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { TitleBar } from "./components/TitleBar";
 import { AgentGrid } from "./finkspace/AgentGrid";
 import { KanbanBoard } from "./components/KanbanBoard";
@@ -15,8 +16,25 @@ function App() {
   useKeyboardShortcuts();
   const activeView = useNavigationStore((s) => s.activeView);
 
+  // Prevent Tauri WebView from scrolling the document. Allow wheel events only
+  // inside elements that explicitly have overflow-y: auto/scroll (settings
+  // panel, swarm console, etc.).
+  useEffect(() => {
+    const handler = (e: WheelEvent) => {
+      let el = e.target as Element | null;
+      while (el && el !== document.body) {
+        const oy = window.getComputedStyle(el).overflowY;
+        if (oy === "auto" || oy === "scroll") return; // let it scroll inside
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener("wheel", handler, { passive: false });
+    return () => window.removeEventListener("wheel", handler);
+  }, []);
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-surface text-primary">
+    <div className="h-screen w-screen flex flex-col bg-surface text-primary overflow-hidden">
       <TitleBar />
       <div className="flex-1 relative">
         <div

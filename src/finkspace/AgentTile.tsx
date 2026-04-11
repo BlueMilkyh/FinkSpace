@@ -29,6 +29,7 @@ interface AgentTileProps {
 
 export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandleProps }: AgentTileProps) {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [autoApprove, setAutoApprove] = useState(true);
   const addAgent = useWorkspaceStore((s) => s.addAgent);
   const activateAgent = useWorkspaceStore((s) => s.activateAgent);
   const switchAgentTerminal = useWorkspaceStore((s) => s.switchAgentTerminal);
@@ -41,7 +42,8 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
     const count = agents.filter((a) => a.terminalType === tt.id).length;
     const name = count === 0 ? tt.name : `${tt.name} ${count + 1}`;
     const workDir = workspace?.workDir || defaultWorkDir;
-    addAgent({ workspaceId, name, workDir, terminalType: tt });
+    // Preserve the source agent's auto-approve setting when splitting.
+    addAgent({ workspaceId, name, workDir, terminalType: tt, autoApprove: agent.autoApprove ?? false });
   };
 
   const handleSelectTerminal = (tt: TerminalType) => {
@@ -50,7 +52,7 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
     const count = agents.filter((a) => a.terminalType === tt.id).length;
     const name = count === 0 ? tt.name : `${tt.name} ${count + 1}`;
     const workDir = workspace?.workDir || defaultWorkDir;
-    activateAgent(agent.id, { workspaceId, name, workDir, terminalType: tt });
+    activateAgent(agent.id, { workspaceId, name, workDir, terminalType: tt, autoApprove });
   };
 
   const handleSwitchTerminal = async (tt: TerminalType) => {
@@ -92,6 +94,18 @@ export function AgentTile({ agent, workspaceId, isVisible, onClose, dragHandlePr
               );
             })}
           </div>
+          {/* Auto-approve toggle */}
+          <label className="flex items-center gap-2 cursor-pointer group select-none mt-1">
+            <input
+              type="checkbox"
+              checked={autoApprove}
+              onChange={(e) => setAutoApprove(e.target.checked)}
+              className="w-3.5 h-3.5 rounded accent-accent-orange cursor-pointer"
+            />
+            <span className="text-xs text-white/40 group-hover:text-white/60 transition-colors">
+              Auto-approve permissions
+            </span>
+          </label>
         </div>
       </div>
     );

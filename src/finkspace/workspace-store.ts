@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Agent, AgentStatus, TerminalType, Workspace } from "../types";
+import { AUTO_APPROVE_ARGS } from "../types";
 import { AGENT_COLORS, getNextColor } from "../lib/colors";
 
 interface AddAgentOptions {
@@ -8,6 +9,8 @@ interface AddAgentOptions {
   name: string;
   workDir: string;
   terminalType: TerminalType;
+  /** When true, append the CLI's auto-approve flags (e.g. --permission-mode bypassPermissions for Claude). */
+  autoApprove?: boolean;
 }
 
 interface WorkspaceStore {
@@ -111,7 +114,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         set({ activeWorkspaceId: id });
       },
 
-      addAgent: ({ workspaceId, name, workDir, terminalType }: AddAgentOptions) => {
+      addAgent: ({ workspaceId, name, workDir, terminalType, autoApprove = false }: AddAgentOptions) => {
+        const extraArgs = autoApprove ? (AUTO_APPROVE_ARGS[terminalType.id] ?? []) : [];
         const agent: Agent = {
           id: generateId(),
           name,
@@ -120,7 +124,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           workDir,
           terminalType: terminalType.id,
           command: terminalType.command,
-          args: [...terminalType.args],
+          args: [...terminalType.args, ...extraArgs],
+          autoApprove: autoApprove && extraArgs.length > 0,
         };
         set((state) => ({
           workspaces: state.workspaces.map((w) =>
@@ -154,7 +159,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }));
       },
 
-      activateAgent: (agentId: string, { workspaceId, name, workDir, terminalType }: AddAgentOptions) => {
+      activateAgent: (agentId: string, { workspaceId, name, workDir, terminalType, autoApprove = false }: AddAgentOptions) => {
+        const extraArgs = autoApprove ? (AUTO_APPROVE_ARGS[terminalType.id] ?? []) : [];
         set((state) => ({
           workspaces: state.workspaces.map((w) =>
             w.id === workspaceId
@@ -169,7 +175,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                           workDir,
                           terminalType: terminalType.id,
                           command: terminalType.command,
-                          args: [...terminalType.args],
+                          args: [...terminalType.args, ...extraArgs],
+                          autoApprove: autoApprove && extraArgs.length > 0,
                         }
                       : a,
                   ),

@@ -69,6 +69,15 @@ pub fn fs_make_dir_all(path: String) -> Result<(), String> {
     fs::create_dir_all(&path).map_err(|e| format!("{}: {}", path, e))
 }
 
+/// Return whether `path` exists on disk. Used by FinkSwarm to validate
+/// user-attached knowledge files before launching a swarm — `fs_read_text`
+/// returns an empty string for missing files and can't distinguish missing
+/// from empty on its own.
+#[tauri::command]
+pub fn fs_path_exists(path: String) -> bool {
+    Path::new(&path).exists()
+}
+
 /// Read a UTF-8 text file. Returns an empty string if the file does not
 /// exist so callers can treat "missing" and "empty" the same way.
 #[tauri::command]

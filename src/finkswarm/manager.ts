@@ -33,12 +33,13 @@ import {
   fsMakeDirAll,
   fsWriteText,
   fsReadText,
+  fsPathExists,
   fsDrainDir,
 } from "../lib/tauri-bridge";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useSwarmStore } from "./store";
 import type { Swarm, SwarmAgent } from "./types";
-import { CLI_META, ROLE_META } from "./types";
+import { CLI_META, ROLE_META, getAgentLabel } from "./types";
 import { getHome } from "../lib/platform";
 
 const DEFAULT_COLS = 120;
@@ -77,6 +78,9 @@ let exitedUnlisten: UnlistenFn | null = null;
 
 interface AgentRuntime {
   swarmId: string;
+  // Agent object snapshot used when composing the bootstrap prompt after
+  // consent dialogs have been dismissed.
+  agent: SwarmAgent;
   // Rolling tail of recent raw output (ANSI stripped) used to detect
   // stacked first-boot consent dialogs. Capped to a few KB.
   dialogTail: string;
@@ -85,6 +89,14 @@ interface AgentRuntime {
   handledDialogs: Set<string>;
   // Debounce timer for the response.
   dialogTimer: ReturnType<typeof setTimeout> | null;
+  // True once the bootstrap prompt has been pasted. Set either by the
+  // dialog scanner (right after the last detected dialog clears) or by
+  // the safety fallback timer. Either way, we only send bootstrap once.
+  bootstrapSent: boolean;
+  // Safety fallback timer — fires after ~8s to send bootstrap even if
+  // we never detected a consent dialog (non-Claude CLIs, or Claude with
+  // pre-accepted consent so nothing to scan).
+  bootstrapTimer: ReturnType<typeof setTimeout> | null;
 }
 const agentRuntime = new Map<string, AgentRuntime>();
 
@@ -173,9 +185,31 @@ function scanForDialogs(agentId: string) {
       writeToAgent(agentId, keys).catch(() => {});
       live.dialogTail = "";
       live.dialogTimer = null;
+      // After dismissing a dialog, schedule bootstrap shortly after —
+      // gives the CLI time to transition to its main prompt before we
+      // paste the bootstrap text. We keep this idempotent (bootstrapSent
+      // flag), so the safety timer and dialog-driven path can't double-up.
+      setTimeout(() => sendBootstrap(agentId), 700);
     }, 250);
     return;
   }
+}
+
+/**
+ * Idempotently deliver the bootstrap prompt to an agent. Called both from
+ * the dialog scanner (right after a consent dialog clears) and from a
+ * safety fallback timer for CLIs where no dialog is ever detected.
+ */
+function sendBootstrap(agentId: string): void {
+  const rt = agentRuntime.get(agentId);
+  if (!rt) return;
+  if (rt.bootstrapSent) return;
+  rt.bootstrapSent = true;
+  if (rt.bootstrapTimer) {
+    clearTimeout(rt.bootstrapTimer);
+    rt.bootstrapTimer = null;
+  }
+  writeToAgent(agentId, bootstrapPrompt(rt.agent) + "\r").catch(() => {});
 }
 
 // ─── Output listener (dialog detection only) ──────────────────────────
@@ -208,26 +242,59 @@ async function ensureListeners() {
     const runtime = agentRuntime.get(event.id);
     if (!runtime) return;
     if (runtime.dialogTimer) clearTimeout(runtime.dialogTimer);
-    useSwarmStore
-      .getState()
-      .setAgentStatus(runtime.swarmId, event.id, "exited");
+    if (runtime.bootstrapTimer) clearTimeout(runtime.bootstrapTimer);
+    const swarmId = runtime.swarmId;
+    useSwarmStore.getState().setAgentStatus(swarmId, event.id, "exited");
     agentRuntime.delete(event.id);
     agentDecoders.delete(event.id);
+    // Natural exit (crash, manual kill, parent CLI quit) — still needs to
+    // bring the whole swarm down if this was the last live agent.
+    maybeMarkSwarmCompleted(swarmId);
+  });
+}
+
+/**
+ * If every agent in the swarm has exited, stop the mailbox poller and
+ * flip the swarm status to "completed". Safe to call any time an agent
+ * transitions to "exited".
+ */
+function maybeMarkSwarmCompleted(swarmId: string): void {
+  const state = useSwarmStore.getState();
+  const swarm = state.swarms.find((s) => s.id === swarmId);
+  if (!swarm) return;
+  // Only auto-complete from an actively running swarm — don't overwrite
+  // "error" or "draft".
+  if (swarm.status !== "running") return;
+  const allExited = swarm.config.agents.every((a) => a.status === "exited");
+  if (!allExited) return;
+  stopSwarmPoller(swarmId);
+  state.setSwarmStatus(swarmId, "completed");
+  state.appendMessage({
+    swarmId,
+    fromAgentId: "system",
+    text: "All agents have exited. Swarm complete.",
   });
 }
 
 // ─── Mission brief composer ────────────────────────────────────────────
 
-function roleLabel(a: SwarmAgent): string {
-  return a.role === "custom" && a.customRole
-    ? a.customRole
-    : ROLE_META[a.role].label.toLowerCase();
+/**
+ * Per-role numbered label (`Builder 1`, `Scout 2`, …). Falls back to the
+ * unnumbered role name when only one agent of that role exists. Rendered
+ * in the UI, the mission brief, and peer-message prefixes so agents can
+ * address each other by number instead of by opaque ID.
+ */
+function roleLabel(a: SwarmAgent, allAgents: SwarmAgent[]): string {
+  return getAgentLabel(a, allAgents);
 }
 
-function composeMissionBrief(swarm: Swarm, agent: SwarmAgent): string {
+export function composeMissionBrief(swarm: Swarm, agent: SwarmAgent): string {
   const peers = swarm.config.agents
     .filter((a) => a.id !== agent.id)
-    .map((a) => `  - ${a.id}  [${roleLabel(a)}]  (${a.cli})`)
+    .map(
+      (a) =>
+        `  - ${roleLabel(a, swarm.config.agents)}  (${a.cli})  [id: ${a.id}]`,
+    )
     .join("\n");
 
   const knowledge =
@@ -235,7 +302,7 @@ function composeMissionBrief(swarm: Swarm, agent: SwarmAgent): string {
       ? "  (none)"
       : swarm.config.knowledge.map((k) => `  - ${k.path}`).join("\n");
 
-  const myLabel = roleLabel(agent);
+  const myLabel = roleLabel(agent, swarm.config.agents);
   const roleDesc =
     agent.role === "custom"
       ? (agent.customRole ?? "custom role")
@@ -308,6 +375,25 @@ function composeMissionBrief(swarm: Swarm, agent: SwarmAgent): string {
     "  contents:",
     `    {"from":"${agent.id}","idle":true}`,
     "",
+    "─── HOW TO SIGNAL DONE (SHUT YOURSELF DOWN) ───",
+    "",
+    "When your work on this mission is finished AND the Coordinator",
+    "has declared the mission complete, write a DONE marker. This is",
+    "your LAST action — FinkSpace will terminate your PTY immediately",
+    "after reading it, and the swarm stops once every agent has done",
+    "the same.",
+    "",
+    "  path:",
+    `    .finkswarm/outbox/<unix_ms>-${agent.id}-done.json`,
+    "  contents:",
+    `    {"from":"${agent.id}","done":true}`,
+    "",
+    "Do NOT send a done marker just because you're waiting on a peer —",
+    "use the idle marker for that. Send done ONLY when the mission is",
+    "truly over for you. Workers: wait for the Coordinator's completion",
+    "broadcast first. Coordinator: send yours last, after every peer has",
+    "acknowledged mission complete.",
+    "",
     "=======================================================",
     "  RULES",
     "=======================================================",
@@ -321,14 +407,18 @@ function composeMissionBrief(swarm: Swarm, agent: SwarmAgent): string {
     "    new outbox message addressed to them.",
     " 5. Keep individual messages compact — one decision, one task,",
     "    or one status update per file.",
+    " 6. When your work is done and the Coordinator has declared the",
+    "    mission complete, write a DONE marker to shut yourself down.",
+    "    Saying \"signing off\" in chat is NOT enough — without the",
+    "    done marker your process keeps running and burns tokens.",
     "",
     "=======================================================",
     "  BEGIN",
     "=======================================================",
     "",
     agent.role === "coordinator"
-      ? "You are the Coordinator. Plan the mission, break it into tasks, and distribute them to the peers listed above by writing outbox messages. Wait for their replies and orchestrate the swarm until the mission is complete."
-      : "Wait for the Coordinator's first instruction (it will arrive as a [Peer coordinator] prompt). Until then, you may read the knowledge files and prepare.",
+      ? "You are the Coordinator. Plan the mission, break it into tasks, and distribute them to the peers listed above by writing outbox messages. Wait for their replies and orchestrate the swarm until the mission is complete. When every task is verifiably done, broadcast a clear \"MISSION COMPLETE\" message to all peers and then — as your very last action — write your own done marker to shut yourself down."
+      : "Wait for the Coordinator's first instruction (it will arrive as a [Peer coordinator] prompt). Until then, you may read the knowledge files and prepare. When the Coordinator broadcasts mission complete, acknowledge it briefly and then write your done marker as your final action.",
     "",
   ].join("\n");
 }
@@ -415,6 +505,51 @@ interface MailboxEnvelope {
   to?: string;
   text?: string;
   idle?: boolean;
+  // Terminal signal — the agent has finished its job and wants its PTY
+  // killed. Sent as the agent's last action; FinkSpace does the actual
+  // process termination and, once every agent has signaled done, marks
+  // the whole swarm completed.
+  done?: boolean;
+}
+
+/**
+ * Kill a single agent's PTY, clean up its runtime maps, and mark it as
+ * exited in the store. If that was the last live agent in the swarm,
+ * stop the mailbox poller and flip the swarm status to "completed".
+ */
+export async function terminateAgent(
+  swarmId: string,
+  agent: SwarmAgent,
+  reason: string,
+): Promise<void> {
+  const state = useSwarmStore.getState();
+  const swarm = state.swarms.find((s) => s.id === swarmId);
+  if (!swarm) return;
+
+  // Already cleaned up — nothing to do.
+  if (!agentRuntime.has(agent.id)) {
+    state.setAgentStatus(swarmId, agent.id, "exited");
+  } else {
+    try {
+      await killAgent(agent.id);
+    } catch {
+      // Process may already be dead.
+    }
+    const rt = agentRuntime.get(agent.id);
+    if (rt?.dialogTimer) clearTimeout(rt.dialogTimer);
+    if (rt?.bootstrapTimer) clearTimeout(rt.bootstrapTimer);
+    agentRuntime.delete(agent.id);
+    agentDecoders.delete(agent.id);
+    state.setAgentStatus(swarmId, agent.id, "exited");
+  }
+
+  state.appendMessage({
+    swarmId,
+    fromAgentId: "system",
+    text: `${getAgentLabel(agent, swarm.config.agents)} ${reason}`,
+  });
+
+  maybeMarkSwarmCompleted(swarmId);
 }
 
 async function pollMailbox(swarmId: string): Promise<void> {
@@ -424,6 +559,13 @@ async function pollMailbox(swarmId: string): Promise<void> {
   const state = useSwarmStore.getState();
   const swarm = state.swarms.find((s) => s.id === swarmId);
   if (!swarm) {
+    stopSwarmPoller(swarmId);
+    return;
+  }
+  // The poller has no business running once a swarm has left the
+  // "running" state — draining disk every 400ms for an errored or
+  // completed swarm is pure waste. Tear ourselves down instead.
+  if (swarm.status !== "running") {
     stopSwarmPoller(swarmId);
     return;
   }
@@ -466,6 +608,16 @@ async function pollMailbox(swarmId: string): Promise<void> {
       continue;
     }
 
+    // Done marker — agent is voluntarily exiting. Kill the PTY and,
+    // if this was the last live agent, tear the whole swarm down.
+    if (env.done === true) {
+      // Fire-and-forget: pollMailbox keeps draining other files.
+      terminateAgent(swarmId, sender, "signaled done and exited.").catch(
+        () => {},
+      );
+      continue;
+    }
+
     const text = String(env.text ?? "").trim();
     if (!text) continue;
 
@@ -482,7 +634,7 @@ async function pollMailbox(swarmId: string): Promise<void> {
     // Deliver to target PTY(s). We paste the message as a new turn
     // prefixed with the sender's role so the receiving agent knows
     // who it came from.
-    const senderLabel = roleLabel(sender);
+    const senderLabel = roleLabel(sender, swarm.config.agents);
     const body = `[Peer ${senderLabel}]: ${text}\n(Respond via the FinkSwarm protocol — write to .finkswarm/outbox/.)`;
     const targets =
       to === "all"
@@ -501,6 +653,47 @@ async function pollMailbox(swarmId: string): Promise<void> {
 export async function startSwarm(swarm: Swarm): Promise<void> {
   await ensureListeners();
 
+  // 0. Fresh slate — clear any leftover agent statuses from a previous run
+  //    (e.g. relaunching a "completed" swarm still showing "exited" badges).
+  for (const agent of swarm.config.agents) {
+    useSwarmStore.getState().setAgentStatus(swarm.id, agent.id, "pending");
+  }
+
+  // 0a. Validate knowledge-file paths on disk. Users can add files in the
+  //     wizard and then move/delete them before launch; a broken path in
+  //     the brief just confuses the agent when its Read tool errors out.
+  //     We skip missing files and surface the list as a system message so
+  //     the user knows which ones were dropped.
+  const missingKnowledge: string[] = [];
+  const validKnowledge = [] as typeof swarm.config.knowledge;
+  for (const k of swarm.config.knowledge) {
+    try {
+      if (await fsPathExists(k.path)) {
+        validKnowledge.push(k);
+      } else {
+        missingKnowledge.push(k.name);
+      }
+    } catch {
+      // Treat any error as "missing" — safer than referencing a path we
+      // can't actually read at brief time.
+      missingKnowledge.push(k.name);
+    }
+  }
+  if (missingKnowledge.length > 0) {
+    useSwarmStore.getState().appendMessage({
+      swarmId: swarm.id,
+      fromAgentId: "system",
+      text: `Skipped ${missingKnowledge.length} missing knowledge file(s): ${missingKnowledge.join(", ")}`,
+    });
+  }
+  // Build a briefing swarm with the filtered knowledge set. We don't
+  // mutate the stored swarm — the user may re-attach the file later and
+  // relaunch, and we'd rather keep their intent intact.
+  const briefingSwarm: Swarm = {
+    ...swarm,
+    config: { ...swarm.config, knowledge: validKnowledge },
+  };
+
   // 1. Prepare the mailbox tree and per-agent briefs on disk.
   try {
     await fsMakeDirAll(outboxDir(swarm.config.workDir));
@@ -508,7 +701,7 @@ export async function startSwarm(swarm: Swarm): Promise<void> {
       await fsMakeDirAll(inboxDir(swarm.config.workDir, agent.id));
       await fsWriteText(
         briefFile(swarm.config.workDir, agent.id),
-        composeMissionBrief(swarm, agent),
+        composeMissionBrief(briefingSwarm, agent),
       );
     }
     // A small README so a human poking at the directory understands it.
@@ -545,14 +738,18 @@ export async function startSwarm(swarm: Swarm): Promise<void> {
   }
 
   // 3. Spawn every agent's PTY.
+  let liveCount = 0;
   for (const agent of swarm.config.agents) {
     const meta = CLI_META[agent.cli];
     const args = agent.autoApprove ? [...meta.autoApproveArgs] : [];
     agentRuntime.set(agent.id, {
       swarmId: swarm.id,
+      agent,
       dialogTail: "",
       handledDialogs: new Set(),
       dialogTimer: null,
+      bootstrapSent: false,
+      bootstrapTimer: null,
     });
     try {
       await spawnAgent(
@@ -564,19 +761,50 @@ export async function startSwarm(swarm: Swarm): Promise<void> {
         DEFAULT_ROWS,
       );
       useSwarmStore.getState().setAgentStatus(swarm.id, agent.id, "running");
+      liveCount++;
+      // Safety fallback: if no consent dialog is detected within ~8s,
+      // send the bootstrap prompt anyway. Covers Claude agents with
+      // pre-accepted consent, plus other CLIs where we have no dialog
+      // signatures at all. sendBootstrap is idempotent, so this races
+      // harmlessly against the dialog-scanner path.
+      const rtJustCreated = agentRuntime.get(agent.id);
+      if (rtJustCreated) {
+        rtJustCreated.bootstrapTimer = setTimeout(() => {
+          sendBootstrap(agent.id);
+        }, 8000);
+      }
     } catch (e) {
       useSwarmStore.getState().setAgentStatus(swarm.id, agent.id, "error");
       useSwarmStore.getState().appendMessage({
         swarmId: swarm.id,
         fromAgentId: "system",
-        text: `Failed to spawn ${roleLabel(agent)} (${agent.cli}): ${String(e)}`,
+        text: `Failed to spawn ${roleLabel(agent, swarm.config.agents)} (${agent.cli}): ${String(e)}`,
       });
       agentRuntime.delete(agent.id);
       continue;
     }
   }
 
-  // 4. Start the mailbox poller.
+  // If every agent failed to spawn, there's no swarm to run. Flip the
+  // status to "error" and bail out before starting the mailbox poller.
+  if (liveCount === 0) {
+    useSwarmStore.getState().setSwarmStatus(swarm.id, "error");
+    useSwarmStore.getState().appendMessage({
+      swarmId: swarm.id,
+      fromAgentId: "system",
+      text: "All agents failed to spawn. Swarm aborted.",
+    });
+    return;
+  }
+
+  // Keep the swarm in "running" state — launchDraft already set this, but
+  // relaunching from "completed" via the dashboard needs it explicit too.
+  useSwarmStore.getState().setSwarmStatus(swarm.id, "running");
+
+  // 4. Start the mailbox poller. Per-agent bootstrap is already armed
+  //    (either by the dialog scanner once consent clears, or by the
+  //    per-agent 8-second safety fallback scheduled above), so we don't
+  //    need a swarm-level bootstrap timer here.
   const timer = setInterval(() => {
     pollMailbox(swarm.id).catch(() => {});
   }, MAILBOX_POLL_MS);
@@ -584,17 +812,6 @@ export async function startSwarm(swarm: Swarm): Promise<void> {
     workDir: swarm.config.workDir,
     pollTimer: timer,
   });
-
-  // 5. Once consent dialogs are resolved, inject a short bootstrap
-  //    prompt that tells each agent to read its brief file. The real
-  //    instructions live in the file, so the PTY-paste payload stays
-  //    small enough that TUI rich-input widgets don't chop it.
-  setTimeout(() => {
-    for (const agent of swarm.config.agents) {
-      if (!agentRuntime.has(agent.id)) continue;
-      writeToAgent(agent.id, bootstrapPrompt(agent) + "\r").catch(() => {});
-    }
-  }, 4000);
 }
 
 export async function stopSwarm(swarmId: string): Promise<void> {
@@ -609,6 +826,7 @@ export async function stopSwarm(swarmId: string): Promise<void> {
     }
     const rt = agentRuntime.get(agent.id);
     if (rt?.dialogTimer) clearTimeout(rt.dialogTimer);
+    if (rt?.bootstrapTimer) clearTimeout(rt.bootstrapTimer);
     agentRuntime.delete(agent.id);
     agentDecoders.delete(agent.id);
     useSwarmStore.getState().setAgentStatus(swarmId, agent.id, "exited");
@@ -617,25 +835,82 @@ export async function stopSwarm(swarmId: string): Promise<void> {
 }
 
 /**
- * Broadcast a user-typed message into the swarm. Logged to the console,
- * then delivered to every agent as a "[USER]" peer turn via PTY.
+ * Send a user-typed message into the swarm. If `toAgentId` is provided the
+ * message is delivered only to that agent; otherwise it's broadcast to every
+ * live agent. Delivery failures (swarm not launched, target dead, PTY write
+ * error) are surfaced as system messages in the console so the user can
+ * tell whether the message actually reached anyone.
  */
 export async function broadcastUserMessage(
   swarmId: string,
   text: string,
+  toAgentId?: string,
 ): Promise<void> {
-  const swarm = useSwarmStore.getState().swarms.find((s) => s.id === swarmId);
+  const state = useSwarmStore.getState();
+  const swarm = state.swarms.find((s) => s.id === swarmId);
   if (!swarm) return;
 
-  useSwarmStore.getState().appendMessage({
+  // Log the user's message first so it shows up in the console
+  // regardless of whether delivery succeeds.
+  state.appendMessage({
     swarmId,
     fromAgentId: "user",
+    toAgentId,
     text,
   });
 
+  const targets = toAgentId
+    ? swarm.config.agents.filter((a) => a.id === toAgentId)
+    : swarm.config.agents;
+
+  if (targets.length === 0) {
+    state.appendMessage({
+      swarmId,
+      fromAgentId: "system",
+      text: "Message not delivered — target agent no longer exists.",
+    });
+    return;
+  }
+
+  const liveTargets = targets.filter((a) => agentRuntime.has(a.id));
+  if (liveTargets.length === 0) {
+    state.appendMessage({
+      swarmId,
+      fromAgentId: "system",
+      text:
+        swarm.status === "running"
+          ? "Message not delivered — no live agents are running right now."
+          : "Message not delivered — launch the swarm first.",
+    });
+    return;
+  }
+
+  // The same paste-into-PTY delivery path peer messages use. We prefix
+  // the text with [USER] so the agent can distinguish human input from
+  // peer traffic, then trail a CR to submit in rich-input TUIs.
   const body = `[USER]: ${text}\n(Respond via the FinkSwarm protocol — write to .finkswarm/outbox/.)`;
-  for (const agent of swarm.config.agents) {
-    if (!agentRuntime.has(agent.id)) continue;
-    writeToAgent(agent.id, body + "\r").catch(() => {});
+
+  // Quietly succeed. We only post a system message when something
+  // actually went wrong — success is implied by the absence of errors.
+  const failed: { agent: SwarmAgent; error: string }[] = [];
+  for (const agent of liveTargets) {
+    try {
+      await writeToAgent(agent.id, body + "\r");
+    } catch (e) {
+      failed.push({ agent, error: String(e) });
+    }
+  }
+
+  if (failed.length > 0) {
+    const details = failed
+      .map(
+        (f) => `${getAgentLabel(f.agent, swarm.config.agents)} (${f.error})`,
+      )
+      .join(", ");
+    state.appendMessage({
+      swarmId,
+      fromAgentId: "system",
+      text: `Failed to deliver to: ${details}`,
+    });
   }
 }

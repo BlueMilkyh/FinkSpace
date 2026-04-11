@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Move, X } from "lucide-react";
 import type { Swarm, SwarmAgent, SwarmAgentRole } from "./types";
-import { ROLE_META, CLI_META } from "./types";
+import { ROLE_META, CLI_META, getAgentLabel } from "./types";
+import { terminateAgent } from "./manager";
 
 // ─── Tunables ──────────────────────────────────────────────────────────
 
@@ -257,8 +258,13 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
     [agents],
   );
 
-  // Highlight edges with recent traffic.
+  const isRunning = swarm.status === "running";
+
+  // Highlight edges with recent traffic — but only while the swarm is
+  // actually running. When draft/completed/error we want a calm graph
+  // with no pulse/glow/flowing packets.
   const hotEdges = useMemo(() => {
+    if (!isRunning) return new Set<string>();
     const last = swarm.messages.slice(-6);
     const hot = new Set<string>();
     for (const m of last) {
@@ -272,7 +278,7 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
       }
     }
     return hot;
-  }, [swarm.messages, agents]);
+  }, [swarm.messages, agents, isRunning]);
 
   // ─── Render ──────────────────────────────────────────────────────────
   return (
@@ -313,7 +319,7 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
           height={world.h}
         >
           {hub &&
-            agents.map((a) => {
+            agents.map((a, idx) => {
               if (a.id === hub.id) return null;
               const from = positions[hub.id];
               const to = positions[a.id];
@@ -326,19 +332,44 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
               const my = (y1 + y2) / 2;
               const d = `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
               const isHot = hotEdges.has(edgeKey(hub.id, a.id));
-              const color = isHot
+              const lineColor = isHot
                 ? ROLE_META[a.role].color
                 : "rgba(255,255,255,0.14)";
+              const dotColor = ROLE_META[a.role].color;
+              const pathId = `swarm-edge-${a.id}`;
+              // Stagger each packet so they don't all start at the top
+              // together — gives the network a natural flowing feel.
+              const begin = `${-(idx * 0.37).toFixed(2)}s`;
               return (
-                <path
-                  key={`edge-${a.id}`}
-                  d={d}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={isHot ? 2 : 1.2}
-                  strokeDasharray={isHot ? "none" : "4 6"}
-                  className={isHot ? "swarm-edge-pulse" : undefined}
-                />
+                <g key={`edge-${a.id}`}>
+                  <path
+                    id={pathId}
+                    d={d}
+                    fill="none"
+                    stroke={lineColor}
+                    strokeWidth={isHot ? 2 : 1.2}
+                    strokeDasharray={isHot ? "none" : "4 6"}
+                    className={isHot ? "swarm-edge-pulse" : undefined}
+                  />
+                  {/* Flowing data packet — only while the swarm is
+                      running. Three concentric circles give a soft halo
+                      + bright core, like a signal running down the wire. */}
+                  {isRunning && (
+                    <g>
+                      <animateMotion
+                        dur="2.6s"
+                        repeatCount="indefinite"
+                        begin={begin}
+                        rotate="auto"
+                      >
+                        <mpath href={`#${pathId}`} />
+                      </animateMotion>
+                      <circle r="8" fill={dotColor} opacity="0.14" />
+                      <circle r="4" fill={dotColor} opacity="0.55" />
+                      <circle r="1.8" fill="#ffffff" />
+                    </g>
+                  )}
+                </g>
               );
             })}
         </svg>
@@ -351,6 +382,8 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
             <AgentCard
               key={a.id}
               agent={a}
+              swarmId={swarm.id}
+              label={getAgentLabel(a, agents)}
               x={p.x}
               y={p.y}
               onPointerDown={(e) => handleCardPointerDown(e, a)}
@@ -361,8 +394,14 @@ export function SwarmGraph({ swarm, onSelectAgent }: SwarmGraphProps) {
         })}
       </div>
 
-      {/* HUD: zoom controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-surface-border bg-surface-light/80 backdrop-blur px-1.5 py-1 text-white/60 text-xs">
+      {/* HUD: zoom controls.
+          Stop pointerdown propagation so the viewport's pan handler doesn't
+          call `setPointerCapture` on a HUD click — capture would swallow the
+          button's pointerup and kill its onClick. */}
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-surface-border bg-surface-light/80 backdrop-blur px-1.5 py-1 text-white/60 text-xs"
+      >
         <button
           onClick={() =>
             setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * 0.85)))
@@ -417,6 +456,8 @@ function edgeKey(a: string, b: string): string {
 
 interface AgentCardProps {
   agent: SwarmAgent;
+  swarmId: string;
+  label: string;
   x: number;
   y: number;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -426,6 +467,8 @@ interface AgentCardProps {
 
 function AgentCard({
   agent,
+  swarmId,
+  label,
   x,
   y,
   onPointerDown,
@@ -434,10 +477,6 @@ function AgentCard({
 }: AgentCardProps) {
   const meta = ROLE_META[agent.role];
   const color = meta.color;
-  const label =
-    agent.role === "custom" && agent.customRole
-      ? agent.customRole.toUpperCase()
-      : meta.label;
 
   const statusColor =
     agent.status === "running"
@@ -453,13 +492,16 @@ function AgentCard({
   const statusText =
     agent.status === "pending" ? "Waiting" : agent.status;
 
+  // Only show the kill affordance for agents that still own a live PTY.
+  const isLive = agent.status === "running" || agent.status === "idle";
+
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      className="absolute flex flex-col justify-between rounded-lg px-3 py-2.5 cursor-pointer transition-shadow hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12)]"
+      className="group absolute flex flex-col justify-between rounded-lg px-3 py-2.5 cursor-pointer transition-shadow hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12)]"
       style={{
         left: x,
         top: y,
@@ -500,6 +542,31 @@ function AgentCard({
               ? "Session ended"
               : "—"}
       </div>
+
+      {/* Per-agent kill button — only live agents. Stop propagation so
+          the card's drag/select pointer handlers don't fire. */}
+      {isLive && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (
+              !confirm(
+                `Kill ${label}? Its CLI process will be terminated immediately.`,
+              )
+            ) {
+              return;
+            }
+            terminateAgent(swarmId, agent, "killed by user.").catch(() => {});
+          }}
+          className="absolute -top-2 -right-2 w-5 h-5 rounded-full border border-red-400/50 bg-red-500/20 text-red-200 opacity-0 group-hover:opacity-100 hover:bg-red-500/40 hover:text-white flex items-center justify-center transition-opacity"
+          title="Kill this agent"
+          aria-label={`Kill ${label}`}
+        >
+          <X size={11} />
+        </button>
+      )}
     </div>
   );
 }

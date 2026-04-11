@@ -58,6 +58,10 @@ export async function fsReadText(path: string): Promise<string> {
   return invoke<string>("fs_read_text", { path });
 }
 
+export async function fsPathExists(path: string): Promise<boolean> {
+  return invoke<boolean>("fs_path_exists", { path });
+}
+
 export interface DrainedFile {
   name: string;
   content: string;

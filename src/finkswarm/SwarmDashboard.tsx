@@ -9,7 +9,7 @@ import {
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useSwarmStore } from "./store";
 import type { Swarm, SwarmAgent } from "./types";
-import { ROLE_META } from "./types";
+import { ROLE_META, getAgentLabel } from "./types";
 import { startSwarm, stopSwarm } from "./manager";
 import { SwarmGraph } from "./SwarmGraph";
 import { SwarmConsole } from "./SwarmConsole";
@@ -40,13 +40,11 @@ export function SwarmDashboard({ swarm }: SwarmDashboardProps) {
   const statusColor =
     swarm.status === "running"
       ? "#2ecc71"
-      : swarm.status === "paused"
-        ? "#f1c40f"
-        : swarm.status === "error"
-          ? "#e74c3c"
-          : swarm.status === "completed"
-            ? "#7f8c8d"
-            : "#9ca3af";
+      : swarm.status === "error"
+        ? "#e74c3c"
+        : swarm.status === "completed"
+          ? "#7f8c8d"
+          : "#9ca3af";
 
   return (
     <div className="absolute inset-0 flex flex-col bg-surface">
@@ -112,20 +110,40 @@ export function SwarmDashboard({ swarm }: SwarmDashboardProps) {
         {swarm.status === "running" ? (
           <button
             onClick={async () => {
+              if (
+                !confirm(
+                  `Stop swarm "${swarm.config.name}"? Every agent PTY will be killed.`,
+                )
+              ) {
+                return;
+              }
               await stopSwarm(swarm.id);
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 border border-red-400/40 text-red-300 text-xs font-semibold uppercase tracking-wider hover:bg-red-500/20 transition-colors"
           >
             <StopCircle size={12} /> Stop Swarm
           </button>
-        ) : swarm.status === "draft" || swarm.status === "completed" ? (
+        ) : swarm.status === "draft" ||
+          swarm.status === "completed" ||
+          swarm.status === "error" ? (
           <button
             onClick={async () => {
               setSwarmStatus(swarm.id, "running");
               const fresh = useSwarmStore
                 .getState()
                 .swarms.find((s) => s.id === swarm.id);
-              if (fresh) await startSwarm(fresh);
+              if (!fresh) return;
+              try {
+                await startSwarm(fresh);
+              } catch (e) {
+                const store = useSwarmStore.getState();
+                store.setSwarmStatus(swarm.id, "error");
+                store.appendMessage({
+                  swarmId: swarm.id,
+                  fromAgentId: "system",
+                  text: `Swarm failed to start: ${String(e)}`,
+                });
+              }
             }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent-orange text-white text-xs font-semibold uppercase tracking-wider hover:brightness-110 transition-all"
           >
@@ -147,7 +165,7 @@ export function SwarmDashboard({ swarm }: SwarmDashboardProps) {
       </div>
 
       {/* Main split */}
-      <div className="flex-1 relative">
+      <div className="flex-1 min-h-0 relative">
         <PanelGroup direction="horizontal">
           <Panel defaultSize={70} minSize={40}>
             <div className="relative h-full w-full">
@@ -180,6 +198,7 @@ export function SwarmDashboard({ swarm }: SwarmDashboardProps) {
       {focusedAgent && (
         <AgentConsoleModal
           agent={focusedAgent}
+          label={getAgentLabel(focusedAgent, swarm.config.agents)}
           onClose={() => setFocusedAgentId(null)}
         />
       )}
@@ -191,16 +210,14 @@ export function SwarmDashboard({ swarm }: SwarmDashboardProps) {
 
 function AgentConsoleModal({
   agent,
+  label,
   onClose,
 }: {
   agent: SwarmAgent;
+  label: string;
   onClose: () => void;
 }) {
   const meta = ROLE_META[agent.role];
-  const label =
-    agent.role === "custom" && agent.customRole
-      ? agent.customRole.toUpperCase()
-      : meta.label;
 
   return (
     <div
@@ -235,7 +252,7 @@ function AgentConsoleModal({
           </button>
         </div>
         <div className="flex-1 p-3 min-h-0">
-          <AgentTerminal agent={agent} />
+          <AgentTerminal agent={agent} label={label} />
         </div>
       </div>
     </div>

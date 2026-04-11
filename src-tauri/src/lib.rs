@@ -25,6 +25,7 @@ pub fn run() {
             commands::fs::fs_read_text,
             commands::fs::fs_write_text,
             commands::fs::fs_drain_dir,
+            commands::fs::fs_path_exists,
         ])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

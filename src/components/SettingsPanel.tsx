@@ -6,6 +6,7 @@ import {
   Terminal,
   SquareTerminal,
   Key,
+  ScrollText,
   RefreshCw,
   CheckCircle,
   Download,
@@ -22,6 +23,7 @@ import { AIAgentsSection } from "./settings/AIAgentsSection";
 import { CLISection } from "./settings/CLISection";
 import { TerminalSection } from "./settings/TerminalSection";
 import { APIKeysSection } from "./settings/APIKeysSection";
+import { ChangelogSection } from "./settings/ChangelogSection";
 
 const NAV_ITEMS: { id: SettingsSection; label: string; description: string; icon: React.ElementType }[] = [
   { id: "appearance", label: "Appearance", description: "Theme and display", icon: Palette },
@@ -30,6 +32,7 @@ const NAV_ITEMS: { id: SettingsSection; label: string; description: string; icon
   { id: "cli", label: "CLI", description: "FinkSpace command", icon: Terminal },
   { id: "terminal", label: "Terminal", description: "Shell settings", icon: SquareTerminal },
   { id: "api-keys", label: "API Keys", description: "Create and manage keys", icon: Key },
+  { id: "changelog", label: "Changelog", description: "What's new", icon: ScrollText },
 ];
 
 const SECTION_COMPONENTS: Record<SettingsSection, React.FC> = {
@@ -39,6 +42,7 @@ const SECTION_COMPONENTS: Record<SettingsSection, React.FC> = {
   cli: CLISection,
   terminal: TerminalSection,
   "api-keys": APIKeysSection,
+  changelog: ChangelogSection,
 };
 
 type UpdateStatus =

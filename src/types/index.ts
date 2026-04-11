@@ -90,6 +90,16 @@ export const TERMINAL_LAYOUTS: TerminalLayout[] = [
   { id: "4-4-4-4", name: "4 x 4", rows: [4, 4, 4, 4] },
 ];
 
+/**
+ * Extra args injected when the user enables auto-approve for AI CLIs.
+ * Only CLIs with a known "accept everything" flag are listed here.
+ */
+export const AUTO_APPROVE_ARGS: Partial<Record<string, string[]>> = {
+  claude: ["--permission-mode", "bypassPermissions"],
+  codex: ["--full-auto"],
+  gemini: ["--yolo"],
+};
+
 export interface Agent {
   id: string;
   name: string;
@@ -99,6 +109,8 @@ export interface Agent {
   terminalType: string;
   command: string;
   args: string[];
+  /** True when launched with auto-approve flags so the UI can reflect it. */
+  autoApprove?: boolean;
 }
 
 export interface Workspace {

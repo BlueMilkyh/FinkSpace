@@ -30,12 +30,7 @@ export type SwarmAgentStatus =
   | "exited"
   | "error";
 
-export type SwarmStatus =
-  | "draft"
-  | "running"
-  | "paused"
-  | "completed"
-  | "error";
+export type SwarmStatus = "draft" | "running" | "completed" | "error";
 
 export interface SwarmAgent {
   id: string;
@@ -104,6 +99,47 @@ export interface RoleMeta {
   label: string;
   color: string;
   description: string;
+}
+
+/**
+ * Build a human-readable label for an agent, numbering it within its role
+ * bucket when there's more than one. Single occurrences stay unnumbered
+ * (`COORDINATOR` rather than `COORDINATOR 1`) because the number adds noise
+ * when there's nothing to disambiguate.
+ *
+ * - `BUILDER 1`, `BUILDER 2`, …
+ * - `COORDINATOR` (if only one)
+ * - `COORDINATOR 1`, `COORDINATOR 2` (if multiple)
+ * - `MY_CUSTOM_ROLE 1` … for custom roles, bucketed by lowercased name
+ */
+export function getAgentLabel(
+  agent: SwarmAgent,
+  allAgents: SwarmAgent[],
+): string {
+  const isCustom = agent.role === "custom";
+  const customKey =
+    isCustom && agent.customRole ? agent.customRole.toLowerCase() : null;
+
+  const base = (() => {
+    if (isCustom && agent.customRole) return agent.customRole.toUpperCase();
+    return ROLE_META[agent.role].label;
+  })();
+
+  const sameBucket = allAgents.filter((a) => {
+    if (isCustom) {
+      return (
+        a.role === "custom" &&
+        a.customRole &&
+        a.customRole.toLowerCase() === customKey
+      );
+    }
+    return a.role === agent.role;
+  });
+
+  if (sameBucket.length <= 1) return base;
+
+  const idx = sameBucket.findIndex((a) => a.id === agent.id);
+  return `${base} ${idx + 1}`;
 }
 
 export const ROLE_META: Record<SwarmAgentRole, RoleMeta> = {

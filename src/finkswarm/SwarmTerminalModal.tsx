@@ -12,7 +12,7 @@ import {
 import { getTerminalTheme } from "../hooks/useTheme";
 import { useSettingsStore } from "../stores/settings-store";
 import type { Swarm, SwarmAgent } from "./types";
-import { ROLE_META } from "./types";
+import { ROLE_META, getAgentLabel } from "./types";
 
 interface SwarmTerminalModalProps {
   swarm: Swarm;
@@ -55,7 +55,11 @@ export function SwarmTerminalModal({ swarm, onClose }: SwarmTerminalModalProps) 
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}
         >
           {swarm.config.agents.map((agent) => (
-            <AgentTerminal key={agent.id} agent={agent} />
+            <AgentTerminal
+              key={agent.id}
+              agent={agent}
+              label={getAgentLabel(agent, swarm.config.agents)}
+            />
           ))}
         </div>
       </div>
@@ -65,14 +69,21 @@ export function SwarmTerminalModal({ swarm, onClose }: SwarmTerminalModalProps) 
 
 // ─── Single agent terminal tile ────────────────────────────────────────
 
-export function AgentTerminal({ agent }: { agent: SwarmAgent }) {
+export function AgentTerminal({
+  agent,
+  label: labelProp,
+}: {
+  agent: SwarmAgent;
+  label?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useSettingsStore((s) => s.settings.theme);
   const meta = ROLE_META[agent.role];
   const label =
-    agent.role === "custom" && agent.customRole
+    labelProp ??
+    (agent.role === "custom" && agent.customRole
       ? agent.customRole.toUpperCase()
-      : meta.label;
+      : meta.label);
 
   useEffect(() => {
     const el = containerRef.current;

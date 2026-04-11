@@ -12,6 +12,8 @@ import type {
 } from "./types";
 import { SWARM_PRESETS } from "./types";
 import { AGENT_COLORS, getNextColor } from "../lib/colors";
+import { getHome } from "../lib/platform";
+import { useWorkspaceStore } from "../finkspace/workspace-store";
 
 export type WizardStep = 0 | 1 | 2 | 3 | 4;
 
@@ -59,10 +61,31 @@ function id() {
   return crypto.randomUUID();
 }
 
+// Hard cap on messages retained per swarm. Chatty multi-hour runs can
+// otherwise push the persisted store into the megabytes and eventually
+// blow localStorage's quota. When we exceed the cap we drop the oldest
+// messages first — the scrollback is FIFO so recent traffic is what
+// matters for debugging.
+const MAX_MESSAGES_PER_SWARM = 500;
+
+function defaultWorkDir(): string {
+  // Prefer the currently active FinkSpace workspace's directory — that's the
+  // "directory the program is open in" from the user's perspective. Fall back
+  // to the user's home dir so the wizard never shows an empty path.
+  try {
+    const ws = useWorkspaceStore.getState();
+    const active = ws.workspaces.find((w) => w.id === ws.activeWorkspaceId);
+    if (active?.workDir) return active.workDir;
+  } catch {
+    /* store not ready — fall through */
+  }
+  return getHome() || "";
+}
+
 function emptyConfig(): SwarmConfig {
   return {
     name: "New Swarm",
-    workDir: "",
+    workDir: defaultWorkDir(),
     prompt: "",
     knowledge: [],
     agents: agentsFromPreset("s5"),
@@ -310,21 +333,23 @@ export const useSwarmStore = create<SwarmStore>()(
 
       appendMessage: (msg) =>
         set((state) => ({
-          swarms: state.swarms.map((s) =>
-            s.id === msg.swarmId
-              ? {
-                  ...s,
-                  messages: [
-                    ...s.messages,
-                    {
-                      ...msg,
-                      id: id(),
-                      createdAt: Date.now(),
-                    },
-                  ],
-                }
-              : s,
-          ),
+          swarms: state.swarms.map((s) => {
+            if (s.id !== msg.swarmId) return s;
+            const next = [
+              ...s.messages,
+              {
+                ...msg,
+                id: id(),
+                createdAt: Date.now(),
+              },
+            ];
+            // Drop oldest once we exceed the cap.
+            const trimmed =
+              next.length > MAX_MESSAGES_PER_SWARM
+                ? next.slice(next.length - MAX_MESSAGES_PER_SWARM)
+                : next;
+            return { ...s, messages: trimmed };
+          }),
         })),
 
       clearMessages: (swarmId) =>

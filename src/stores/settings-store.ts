@@ -7,7 +7,8 @@ export type SettingsSection =
   | "ai-agents"
   | "cli"
   | "terminal"
-  | "api-keys";
+  | "api-keys"
+  | "changelog";
 
 interface Settings {
   // Appearance

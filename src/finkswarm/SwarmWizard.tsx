@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   ArrowLeft,
@@ -31,6 +31,7 @@ import {
   ROLE_META,
   SWARM_CLIS,
   SWARM_PRESETS,
+  getAgentLabel,
   type SwarmAgent,
   type SwarmAgentCli,
   type SwarmAgentRole,
@@ -111,6 +112,13 @@ export function SwarmWizard() {
     if (launched) {
       startSwarm(launched).catch((e) => {
         console.error("startSwarm failed", e);
+        const store = useSwarmStore.getState();
+        store.setSwarmStatus(id, "error");
+        store.appendMessage({
+          swarmId: id,
+          fromAgentId: "system",
+          text: `Swarm failed to start: ${String(e)}`,
+        });
       });
     }
   };
@@ -201,7 +209,7 @@ export function SwarmWizard() {
                 <div className="flex items-center gap-3 min-w-0">
                   <FolderOpen size={18} className="text-accent-orange/80 shrink-0" />
                   <span className="text-sm font-mono text-white/80 truncate">
-                    {draft.workDir || "/Users/matthewmiller"}
+                    {draft.workDir || "Select a folder…"}
                   </span>
                 </div>
                 <span className="text-[10px] tracking-widest uppercase font-semibold text-white/60 px-2 py-1 rounded bg-white/5 border border-surface-border shrink-0">
@@ -557,6 +565,7 @@ function AgentRosterStep({
             key={agent.id}
             index={idx + 1}
             agent={agent}
+            allAgents={draft.agents}
             onChange={(patch) => updateAgent(agent.id, patch)}
             onRemove={() => removeAgent(agent.id)}
           />
@@ -578,11 +587,13 @@ function AgentRosterStep({
 function AgentRow({
   index,
   agent,
+  allAgents,
   onChange,
   onRemove,
 }: {
   index: number;
   agent: SwarmAgent;
+  allAgents: SwarmAgent[];
   onChange: (patch: Partial<SwarmAgent>) => void;
   onRemove: () => void;
 }) {
@@ -590,10 +601,7 @@ function AgentRow({
   const RoleIcon = ROLE_ICONS[agent.role];
   const roleColor = ROLE_META[agent.role].color;
 
-  const label =
-    agent.role === "custom" && agent.customRole
-      ? agent.customRole.toUpperCase()
-      : ROLE_META[agent.role].label;
+  const label = getAgentLabel(agent, allAgents);
 
   return (
     <div className="flex flex-col rounded-lg border border-surface-border bg-surface-light overflow-hidden">
@@ -727,7 +735,7 @@ function AgentRow({
 }
 
 // Tiny local hook to avoid a hook import just for useState
-import { useState } from "react";
 function useExpanded(init: boolean) {
   return useState<boolean>(init);
 }
+
