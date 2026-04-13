@@ -59,6 +59,20 @@ impl PtySession {
         }
         cmd.cwd(cwd);
 
+        // Tell the shell it's running inside a full-featured terminal emulator.
+        // Without these, macOS shells default to dumb mode: no colors, broken
+        // line editing, missing completions.
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+
+        // Ensure UTF-8 locale so Unicode renders correctly in zsh/bash prompts
+        #[cfg(not(target_os = "windows"))]
+        {
+            if std::env::var("LANG").unwrap_or_default().is_empty() {
+                cmd.env("LANG", "en_US.UTF-8");
+            }
+        }
+
         // On macOS/Linux, enrich PATH so child processes also find tools
         #[cfg(not(target_os = "windows"))]
         {
