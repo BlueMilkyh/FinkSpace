@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelGroupHandle } from "react-resizable-panels";
 import {
   DndContext,
@@ -160,16 +160,9 @@ export function AgentGrid() {
   const removeAgent = useWorkspaceStore((s) => s.removeAgent);
   const reorderAgents = useWorkspaceStore((s) => s.reorderAgents);
 
-  const terminalLayout = useSettingsStore((s) => s.settings.terminalLayout);
-  const customLayoutRows = useSettingsStore((s) => s.settings.customLayoutRows);
+  const globalTerminalLayout = useSettingsStore((s) => s.settings.terminalLayout);
+  const globalCustomLayoutRows = useSettingsStore((s) => s.settings.customLayoutRows);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
-
-  const activeLayout = useMemo(() => {
-    if (terminalLayout === "custom") {
-      return { id: "custom", name: "Custom", rows: customLayoutRows };
-    }
-    return TERMINAL_LAYOUTS.find((l) => l.id === terminalLayout);
-  }, [terminalLayout, customLayoutRows]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -242,9 +235,15 @@ export function AgentGrid() {
             );
           }
 
-          // Determine row layout
-          const useCustomLayout = activeLayout && activeLayout.rows.length > 0;
-          const rowDef = useCustomLayout ? activeLayout.rows : autoSplitRows(agents.length);
+          // Determine row layout — per-workspace, falling back to global setting
+          const wsLayout = workspace.layout ?? globalTerminalLayout;
+          const wsCustomRows = workspace.customLayoutRows ?? globalCustomLayoutRows;
+          const resolvedLayout =
+            wsLayout === "custom"
+              ? { id: "custom", name: "Custom", rows: wsCustomRows }
+              : TERMINAL_LAYOUTS.find((l) => l.id === wsLayout);
+          const useCustomLayout = resolvedLayout && resolvedLayout.rows.length > 0;
+          const rowDef = useCustomLayout ? resolvedLayout.rows : autoSplitRows(agents.length);
           const agentRows = splitIntoRows(agents, rowDef);
 
           // Single agent — no resize handles or drag needed

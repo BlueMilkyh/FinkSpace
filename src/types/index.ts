@@ -119,6 +119,8 @@ export interface Workspace {
   color: string;
   workDir: string; // root folder for this workspace
   agents: Agent[];
+  layout?: string; // per-workspace layout preset id (e.g. "auto", "2-2"); falls back to global setting
+  customLayoutRows?: number[]; // per-workspace custom rows; used when layout === "custom"
 }
 
 // ── Kanban ──────────────────────────────────────────────

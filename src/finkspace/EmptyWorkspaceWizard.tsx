@@ -202,9 +202,11 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
   const addPendingAgent = useWorkspaceStore((s) => s.addPendingAgent);
   const removeWorkspace = useWorkspaceStore((s) => s.removeWorkspace);
   const workspaceCount = useWorkspaceStore((s) => s.workspaces.length);
-  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const setWorkspaceLayout = useWorkspaceStore((s) => s.setWorkspaceLayout);
   const defaultWorkDir = useSettingsStore((s) => s.settings.defaultWorkDir);
-  const persistedCustomRows = useSettingsStore((s) => s.settings.customLayoutRows);
+  const persistedCustomRows = useWorkspaceStore(
+    (s) => s.workspaces.find((w) => w.id === workspaceId)?.customLayoutRows,
+  ) ?? useSettingsStore((s) => s.settings.customLayoutRows);
 
   // Local draft for custom layout — only persisted on launch
   const [customRows, setCustomRows] = useState<number[]>(
@@ -305,7 +307,7 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
   };
 
   const runQuickPreset = (preset: QuickPreset) => {
-    updateSetting("terminalLayout", preset.layoutId);
+    setWorkspaceLayout(workspaceId, preset.layoutId);
     const dir = workDir || defaultWorkDir;
 
     // Resolve the platform's default shell terminal type for the "__shell__" placeholder.
@@ -346,9 +348,10 @@ export function EmptyWorkspaceWizard({ workspaceId }: EmptyWorkspaceWizardProps)
         .filter((n) => n >= 1)
         .map((n) => Math.min(MAX_CUSTOM_COLS, Math.max(1, Math.floor(n))));
       if (cleaned.length === 0) return;
-      updateSetting("customLayoutRows", cleaned);
+      setWorkspaceLayout(workspaceId, layoutId, cleaned);
+    } else {
+      setWorkspaceLayout(workspaceId, layoutId);
     }
-    updateSetting("terminalLayout", layoutId);
     const dir = workDir || defaultWorkDir;
 
     if (skipAgents) {

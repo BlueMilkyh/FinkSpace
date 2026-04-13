@@ -65,10 +65,14 @@ export function TabContextMenu({
     setIsRenaming(false);
   };
 
-  const terminalLayout = useSettingsStore((s) => s.settings.terminalLayout);
-  const customLayoutRows = useSettingsStore((s) => s.settings.customLayoutRows);
-  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId));
+  const globalTerminalLayout = useSettingsStore((s) => s.settings.terminalLayout);
+  const globalCustomLayoutRows = useSettingsStore((s) => s.settings.customLayoutRows);
+  const setWorkspaceLayout = useWorkspaceStore((s) => s.setWorkspaceLayout);
   const addPendingAgent = useWorkspaceStore((s) => s.addPendingAgent);
+
+  const terminalLayout = workspace?.layout ?? globalTerminalLayout;
+  const customLayoutRows = workspace?.customLayoutRows ?? globalCustomLayoutRows;
 
   // Custom layout editor state — holds the draft while user is editing.
   const [customEditorOpen, setCustomEditorOpen] = useState(false);
@@ -80,8 +84,8 @@ export function TabContextMenu({
   };
 
   const applyLayoutById = (id: string, rows: number[]) => {
-    updateSetting("terminalLayout", id);
     if (!workspaceId) return;
+    setWorkspaceLayout(workspaceId, id);
     const totalSlots = rows.reduce((sum, cols) => sum + cols, 0);
     const ws = useWorkspaceStore.getState().workspaces.find((w) => w.id === workspaceId);
     const currentCount = ws?.agents.length ?? 0;
@@ -94,8 +98,15 @@ export function TabContextMenu({
   const applyCustom = () => {
     const cleaned = draftRows.filter((n) => n >= 1).map((n) => Math.min(8, Math.max(1, Math.floor(n))));
     if (cleaned.length === 0) return;
-    updateSetting("customLayoutRows", cleaned);
-    applyLayoutById("custom", cleaned);
+    if (!workspaceId) return;
+    setWorkspaceLayout(workspaceId, "custom", cleaned);
+    // Spawn pending agents if needed
+    const totalSlots = cleaned.reduce((sum, n) => sum + n, 0);
+    const ws = useWorkspaceStore.getState().workspaces.find((w) => w.id === workspaceId);
+    const currentCount = ws?.agents.length ?? 0;
+    for (let i = currentCount; i < totalSlots; i++) {
+      addPendingAgent(workspaceId);
+    }
     onClose();
   };
 

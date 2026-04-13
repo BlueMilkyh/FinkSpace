@@ -23,6 +23,7 @@ interface WorkspaceStore {
   renameWorkspace: (id: string, name: string) => void;
   setWorkspaceColor: (id: string, color: string) => void;
   setWorkspaceDir: (id: string, workDir: string) => void;
+  setWorkspaceLayout: (id: string, layout: string, customRows?: number[]) => void;
   switchWorkspace: (id: string) => void;
   reorderWorkspaces: (fromIndex: number, toIndex: number) => void;
 
@@ -106,6 +107,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         set((state) => ({
           workspaces: state.workspaces.map((w) =>
             w.id === id ? { ...w, workDir } : w,
+          ),
+        }));
+      },
+
+      setWorkspaceLayout: (id: string, layout: string, customRows?: number[]) => {
+        set((state) => ({
+          workspaces: state.workspaces.map((w) =>
+            w.id === id
+              ? { ...w, layout, ...(customRows ? { customLayoutRows: customRows } : {}) }
+              : w,
           ),
         }));
       },
